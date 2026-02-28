@@ -11,3 +11,9 @@ export { render } from './renderer';
 export type { RenderState } from './renderer';
 export { AudioEngine, haptic, HAPTIC_DAMAGE, HAPTIC_POWERUP, HAPTIC_BOMB, HAPTIC_FIRE } from './audio';
 export type { AudioSettings } from './audio';
+export {
+  loadProfile, saveProfile, awardXp, recordRunStats,
+  canAffordUpgrade, purchaseUpgrade, getUpgradeCost,
+  computeModifiers, calcPlayerLevel, xpToNextLevel, xpProgressPercent,
+  resetProfile,
+} from './progression';

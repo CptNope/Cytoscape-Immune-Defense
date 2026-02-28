@@ -1,10 +1,12 @@
 # Roadmap — Cytoscape: Immune Defense
 
-This document outlines planned features and expansion ideas for the game, organized by release phase.
+This document outlines planned features and expansion ideas for the game, organized by release version.
+
+> **Version history:** v1.0 initial release → v1.1 PWA & scores → v1.2 engine refactor & tests → v1.3 audio & feedback → v1.4 progression & unlockables
 
 ---
 
-## v1.2 — Audio & Feedback
+## v1.3 — Audio & Feedback ✅
 
 - [x] Sound effects — thrust, fire, explosions, power-up pickup, damage hit, level clear
 - [x] Background music — ambient biological/electronic soundtrack
@@ -12,22 +14,22 @@ This document outlines planned features and expansion ideas for the game, organi
 - [x] Haptic feedback on mobile (vibration API) for damage and power-ups
 - [x] Improved screen shake with directional bias
 
-## v1.3 — Progression & Unlockables
+## v1.4 — Progression & Unlockables ✅
 
-- [ ] **XP/Leveling system** — earn XP across runs, unlock permanent upgrades
-- [ ] **Upgrade tree** — spend XP on ship stats:
+- [x] **XP/Leveling system** — earn XP across runs, unlock permanent upgrades
+- [x] **Upgrade tree** — spend XP on ship stats:
   - Hull integrity (more health)
   - Thruster power (faster acceleration)
   - Antibody potency (more damage)
   - Rapid response (faster fire rate base)
   - Membrane shield (longer shield duration)
-- [ ] **Cytokine signals** (passive abilities) — unlocked at level milestones:
+- [x] **Cytokine signals** (passive abilities) — unlocked at level milestones:
   - Auto-targeting antibodies
   - Regeneration (slow health recovery)
   - Chain reaction (explosions damage nearby pathogens)
-- [ ] Stats tracking — total kills, total score, time played, pathogens killed by type
+- [x] Stats tracking — total kills, total score, time played, pathogens killed by type
 
-## v1.4 — New Enemies & Bosses
+## v1.5 — New Enemies & Bosses
 
 - [ ] **Prion** — tiny, fast, nearly invisible, appears in swarms
 - [ ] **Cancer cell** — doesn't move but grows over time, spawns smaller copies
@@ -38,7 +40,7 @@ This document outlines planned features and expansion ideas for the game, organi
   - Level 15: **Parasitic Worm** — multi-segment entity that tracks aggressively
   - Level 20: **Fungal Bloom** — fills screen with spore clouds, must destroy central core
 
-## v1.5 — Game Modes
+## v1.6 — Game Modes
 
 - [ ] **Endless Mode** — current mode, renamed
 - [ ] **Campaign Mode** — 20 structured levels with story text between waves
@@ -47,7 +49,7 @@ This document outlines planned features and expansion ideas for the game, organi
 - [ ] **Time Attack** — survive as long as possible with a countdown timer; kills add time
 - [ ] **Zen Mode** — no damage, no scoring, relaxing exploration with ambient effects
 
-## v1.6 — Visual Polish
+## v1.7 — Visual Polish
 
 - [ ] Animated background — flowing blood cells, plasma current effects
 - [ ] Pathogen death animations — disintegration, cell lysis effects

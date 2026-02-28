@@ -77,3 +77,63 @@ export interface VirtualControls {
   joystickDistance: number;
   fire: boolean;
 }
+
+// --- Progression System ---
+
+export type UpgradeId =
+  | 'hull_integrity'
+  | 'thruster_power'
+  | 'antibody_potency'
+  | 'rapid_response'
+  | 'membrane_shield';
+
+export type CytokineId =
+  | 'auto_target'
+  | 'regeneration'
+  | 'chain_reaction';
+
+export interface UpgradeDef {
+  id: UpgradeId;
+  name: string;
+  description: string;
+  maxLevel: number;
+  costs: number[];          // XP cost per level
+  icon: string;             // emoji
+}
+
+export interface CytokineDef {
+  id: CytokineId;
+  name: string;
+  description: string;
+  unlockPlayerLevel: number;
+  icon: string;
+}
+
+export interface PlayerProfile {
+  xp: number;
+  lifetimeXp: number;
+  playerLevel: number;
+  upgrades: Record<UpgradeId, number>;       // current level for each upgrade (0 = not purchased)
+  cytokines: Record<CytokineId, boolean>;    // true = unlocked & active
+  stats: PlayerStats;
+}
+
+export interface PlayerStats {
+  totalKills: number;
+  killsByType: Record<string, number>;       // keyed by pathogen type
+  totalScore: number;
+  totalRuns: number;
+  totalTimePlayed: number;                   // seconds
+  highestLevel: number;
+}
+
+export interface GameModifiers {
+  maxHealth: number;
+  thrustPower: number;
+  bulletDamage: number;
+  shotDelay: number;          // base shot delay ms
+  shieldDuration: number;     // frames
+  hasAutoTarget: boolean;
+  hasRegeneration: boolean;
+  hasChainReaction: boolean;
+}

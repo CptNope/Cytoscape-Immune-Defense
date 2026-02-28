@@ -5,6 +5,35 @@ All notable changes to Cytoscape: Immune Defense will be documented in this file
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-02-27
+
+### Added
+- **Progression system** (`src/engine/progression.ts`) — persistent player profile with XP, upgrades, and stats
+  - XP earned = score from each run, persisted to localStorage
+  - Player leveling system with 20 levels and escalating XP thresholds
+- **Upgrade tree** — 5 ship upgrades, each with 5 purchasable levels:
+  - Hull Integrity (+10 max health per level)
+  - Thruster Power (+0.02 thrust per level)
+  - Antibody Potency (+0.25 damage per level)
+  - Rapid Response (-15ms shot delay per level)
+  - Membrane Shield (+50 frames shield duration per level)
+- **Cytokine signals** — 3 passive abilities unlocked at player level milestones:
+  - Auto-Targeting (Lv.5) — antibodies gently track nearest pathogen within range
+  - Regeneration (Lv.10) — slowly recover 1 health every 5 seconds
+  - Chain Reaction (Lv.15) — explosions damage nearby pathogens
+- **Upgrade screen** (`UpgradeScreen.tsx`) — between-run UI showing player level, XP, upgrade tree, and cytokine signals
+- **Stats panel** (`StatsPanel.tsx`) — lifetime statistics: total kills, kills by pathogen type, score, runs, time played, highest level
+- XP earned summary on game over screen with kill count and level reached
+- "UPGRADES" button on game over screen to return to upgrade tree
+- Health bar now shows current/max health (reflecting hull integrity upgrades)
+
+### Changed
+- Roadmap version labels realigned to match actual semver releases (v1.0→v1.1→v1.2→v1.3→v1.4)
+- Menu screen replaced with full upgrade screen (player level, XP bar, upgrade tree, cytokine signals, stats access)
+- Game over screen now shows XP earned and offers both "UPGRADES" and "RETRY" buttons
+- Shot delay, thrust power, bullet damage, and shield duration now driven by upgrade modifiers
+- `SHIP_THRUST` and `POWERUP_DURATION` replaced with computed `GameModifiers` from player profile
+
 ## [1.3.0] - 2026-02-27
 
 ### Added

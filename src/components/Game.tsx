@@ -5,20 +5,26 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Shield, Zap, Activity, RefreshCw, Play, Trophy } from 'lucide-react';
+import { Zap, Activity, RefreshCw, Trophy } from 'lucide-react';
 import {
   type Vector, type Pathogen, type Antibody, type Particle, type PowerUp,
   type FloatingText, type ScoreEntry, type Ship, type ActivePowerUps, type VirtualControls,
-  FRICTION, SHIP_THRUST, SHIP_TURN_SPEED, BULLET_SPEED, BULLET_LIFE,
+  type PlayerProfile, type GameModifiers,
+  FRICTION, SHIP_TURN_SPEED, BULLET_SPEED, BULLET_LIFE,
   PATHOGEN_MIN_RADIUS, PATHOGEN_MAX_RADIUS, INITIAL_PATHOGEN_COUNT, MAX_PARTICLES,
-  POWERUP_DURATION, POWERUP_DROP_RATE, POWERUP_LIFETIME,
+  POWERUP_DROP_RATE, POWERUP_LIFETIME,
+  AUTO_TARGET_STRENGTH, REGEN_INTERVAL, REGEN_AMOUNT,
+  CHAIN_REACTION_RADIUS, CHAIN_REACTION_DAMAGE,
   randomRange, distance, circlesCollide, wrapPosition, applyVelocity, applyFriction,
   angleToTarget, speed, clampSpeed,
   loadTopScores, saveTopScore,
   render,
   AudioEngine, haptic, HAPTIC_DAMAGE, HAPTIC_POWERUP, HAPTIC_BOMB, HAPTIC_FIRE,
+  loadProfile, awardXp, recordRunStats, computeModifiers,
 } from '../engine';
 import AudioControls from './AudioControls';
+import UpgradeScreen from './UpgradeScreen';
+import StatsPanel from './StatsPanel';
 
 export default function Game() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -32,6 +38,17 @@ export default function Game() {
   const [isPaused, setIsPaused] = useState(false);
   const [flash, setFlash] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
+
+  // Progression
+  const [profile, setProfile] = useState<PlayerProfile>(loadProfile());
+  const [menuView, setMenuView] = useState<'upgrades' | 'stats'>('upgrades');
+  const modifiersRef = useRef<GameModifiers>(computeModifiers(loadProfile()));
+
+  // Run tracking
+  const runKillsRef = useRef(0);
+  const runKillsByTypeRef = useRef<Record<string, number>>({});
+  const runStartRef = useRef(0);
+  const regenTimerRef = useRef(0);
 
   // Audio engine (initialized on first user gesture)
   const audioRef = useRef(new AudioEngine());
@@ -97,8 +114,14 @@ export default function Game() {
       damageBoost: 0
     };
     setScore(0);
-    setHealth(100);
+    setHealth(modifiersRef.current.maxHealth);
     setLevel(1);
+
+    // Reset run tracking
+    runKillsRef.current = 0;
+    runKillsByTypeRef.current = {};
+    runStartRef.current = Date.now();
+    regenTimerRef.current = 0;
     
     for (let i = 0; i < INITIAL_PATHOGEN_COUNT; i++) {
       spawnPathogen(true);
@@ -203,6 +226,9 @@ export default function Game() {
     pathogensRef.current.forEach(p => {
       createExplosion(p.pos, p.type === 'bacteria' ? '#ef4444' : p.type === 'virus' ? '#f59e0b' : p.type === 'parasite' ? '#a855f7' : '#10b981', 15);
       setScore(s => s + p.points);
+      // Track bomb kills
+      runKillsRef.current++;
+      runKillsByTypeRef.current[p.type] = (runKillsByTypeRef.current[p.type] || 0) + 1;
     });
     pathogensRef.current = [];
   };
@@ -244,8 +270,8 @@ export default function Game() {
 
       // Thrust if joystick is pushed far enough
       if (virtualControlsRef.current.joystickDistance > 0.4) {
-        ship.vel.x += Math.cos(ship.rotation) * SHIP_THRUST;
-        ship.vel.y += Math.sin(ship.rotation) * SHIP_THRUST;
+        ship.vel.x += Math.cos(ship.rotation) * modifiersRef.current.thrustPower;
+        ship.vel.y += Math.sin(ship.rotation) * modifiersRef.current.thrustPower;
         isThrusting = true;
       }
     } else {
@@ -254,8 +280,8 @@ export default function Game() {
       if (keysRef.current['ArrowRight'] || keysRef.current['d']) ship.rotation += SHIP_TURN_SPEED;
       
       if (keysRef.current['ArrowUp'] || keysRef.current['w']) {
-        ship.vel.x += Math.cos(ship.rotation) * SHIP_THRUST;
-        ship.vel.y += Math.sin(ship.rotation) * SHIP_THRUST;
+        ship.vel.x += Math.cos(ship.rotation) * modifiersRef.current.thrustPower;
+        ship.vel.y += Math.sin(ship.rotation) * modifiersRef.current.thrustPower;
         isThrusting = true;
       }
     }
@@ -300,7 +326,8 @@ export default function Game() {
     if (ap.damageBoost > 0) ap.damageBoost--;
 
     // Shooting
-    const shotDelay = activePowerUpsRef.current.rapidFire > 0 ? 80 : 200;
+    const baseShotDelay = modifiersRef.current.shotDelay;
+    const shotDelay = activePowerUpsRef.current.rapidFire > 0 ? Math.max(40, baseShotDelay * 0.4) : baseShotDelay;
     if ((keysRef.current[' '] || keysRef.current['f'] || virtualControlsRef.current.fire) && Date.now() - ship.lastShot > shotDelay) {
       antibodiesRef.current.push({
         id: nextIdRef.current++,
@@ -387,7 +414,7 @@ export default function Game() {
         if (!hit && distance(a.pos, p.pos) < p.radius) {
           hit = true;
           
-          let damage = activePowerUpsRef.current.damageBoost > 0 ? 2 : 1;
+          let damage = modifiersRef.current.bulletDamage * (activePowerUpsRef.current.damageBoost > 0 ? 2 : 1);
           let resisted = false;
 
           // Resistance Logic
@@ -415,8 +442,24 @@ export default function Game() {
           if (p.health <= 0) {
             setScore(s => s + p.points);
             spawnFloatingText(p.pos, `+${p.points}`, '#ffffff', 20);
-            createExplosion(p.pos, p.type === 'bacteria' ? '#ef4444' : p.type === 'virus' ? '#f59e0b' : p.type === 'parasite' ? '#a855f7' : '#10b981', 15);
+            const killColor = p.type === 'bacteria' ? '#ef4444' : p.type === 'virus' ? '#f59e0b' : p.type === 'parasite' ? '#a855f7' : '#10b981';
+            createExplosion(p.pos, killColor, 15);
             audioRef.current.playExplosion(p.radius > 35 ? 'large' : p.radius > 20 ? 'medium' : 'small');
+
+            // Track kill
+            runKillsRef.current++;
+            runKillsByTypeRef.current[p.type] = (runKillsByTypeRef.current[p.type] || 0) + 1;
+
+            // Chain reaction: damage nearby pathogens
+            if (modifiersRef.current.hasChainReaction) {
+              pathogensRef.current.forEach(nearby => {
+                if (nearby.id !== p.id && distance(p.pos, nearby.pos) < CHAIN_REACTION_RADIUS) {
+                  nearby.health -= CHAIN_REACTION_DAMAGE;
+                  createExplosion(nearby.pos, '#fbbf24', 3);
+                }
+              });
+            }
+
             spawnPowerUp(p.pos);
             // Split
             spawnPathogen(false, p);
@@ -438,15 +481,15 @@ export default function Game() {
       // Collision with Ship
       if (circlesCollide(p, ship)) {
         if (p.type === 'rapid_fire') {
-          activePowerUpsRef.current.rapidFire = POWERUP_DURATION;
+          activePowerUpsRef.current.rapidFire = 300;
           spawnFloatingText(p.pos, 'RAPID FIRE', '#60a5fa');
         }
         if (p.type === 'shield') {
-          activePowerUpsRef.current.shield = POWERUP_DURATION;
+          activePowerUpsRef.current.shield = modifiersRef.current.shieldDuration;
           spawnFloatingText(p.pos, 'SHIELD ACTIVE', '#a855f7');
         }
         if (p.type === 'damage_boost') {
-          activePowerUpsRef.current.damageBoost = POWERUP_DURATION;
+          activePowerUpsRef.current.damageBoost = 300;
           spawnFloatingText(p.pos, 'DAMAGE BOOST', '#fbbf24');
         }
         if (p.type === 'bomb') {
@@ -492,7 +535,40 @@ export default function Game() {
       }
     }
 
-    // 6. Update Shake
+    // 7. Cytokine: Auto-targeting antibodies
+    if (modifiersRef.current.hasAutoTarget && pathogensRef.current.length > 0) {
+      antibodiesRef.current.forEach(a => {
+        let closest: Pathogen | null = null;
+        let closestDist = Infinity;
+        pathogensRef.current.forEach(p => {
+          const d = distance(a.pos, p.pos);
+          if (d < closestDist) { closestDist = d; closest = p; }
+        });
+        if (closest && closestDist < 300) {
+          const target = angleToTarget(a.pos, (closest as Pathogen).pos);
+          const currentAngle = Math.atan2(a.vel.y, a.vel.x);
+          let diff = target - currentAngle;
+          while (diff < -Math.PI) diff += Math.PI * 2;
+          while (diff > Math.PI) diff -= Math.PI * 2;
+          const turn = Math.sign(diff) * Math.min(Math.abs(diff), AUTO_TARGET_STRENGTH);
+          const spd = speed(a.vel);
+          const newAngle = currentAngle + turn;
+          a.vel.x = Math.cos(newAngle) * spd;
+          a.vel.y = Math.sin(newAngle) * spd;
+        }
+      });
+    }
+
+    // 8. Cytokine: Regeneration
+    if (modifiersRef.current.hasRegeneration) {
+      regenTimerRef.current++;
+      if (regenTimerRef.current >= REGEN_INTERVAL) {
+        regenTimerRef.current = 0;
+        setHealth(h => Math.min(modifiersRef.current.maxHealth, h + REGEN_AMOUNT));
+      }
+    }
+
+    // 9. Update Shake
     setShake(s => Math.max(0, s * 0.9));
     setFlash(f => Math.max(0, f - 1));
   };
@@ -581,14 +657,29 @@ export default function Game() {
       setTopScores(updated);
       const rank = updated.findIndex(s => s.score === score && s.date === entry.date);
       setLastScoreRank(rank >= 0 ? rank : null);
+
+      // Award XP & record run stats
+      const timePlayed = Math.round((Date.now() - runStartRef.current) / 1000);
+      let p = awardXp(profile, score);
+      p = recordRunStats(p, {
+        kills: runKillsRef.current,
+        killsByType: { ...runKillsByTypeRef.current },
+        score,
+        level,
+        timePlayed,
+      });
+      setProfile(p);
     }
   }, [gameState]);
 
   const startGame = () => {
     setLastScoreRank(null);
+    // Recompute modifiers from latest profile
+    modifiersRef.current = computeModifiers(profile);
     audioRef.current.init();
     initGame();
     setGameState('playing');
+    setMenuView('upgrades');
     audioRef.current.startMusic();
   };
 
@@ -618,11 +709,11 @@ export default function Game() {
                 <div className="w-48 h-2 bg-white/10 rounded-full overflow-hidden">
                   <motion.div
                     className="h-full bg-red-500"
-                    animate={{ width: `${health}%` }}
+                    animate={{ width: `${(health / modifiersRef.current.maxHealth) * 100}%` }}
                     transition={{ type: 'spring', bounce: 0 }}
                   />
                 </div>
-                <span className="font-mono text-sm">{health}%</span>
+                <span className="font-mono text-sm">{health}/{modifiersRef.current.maxHealth}</span>
               </div>
               <div className="flex items-center gap-3 bg-black/40 backdrop-blur-md border border-white/10 p-3 rounded-xl">
                 <Trophy className="w-5 h-5 text-yellow-500" />
@@ -734,64 +825,20 @@ export default function Game() {
           </motion.div>
         )}
 
-        {gameState === 'menu' && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm z-10"
-          >
-            <div className="max-w-md w-full p-8 text-center space-y-8">
-              <div className="space-y-2">
-                <motion.h1 
-                  initial={{ scale: 0.9, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  className="text-6xl font-black tracking-tighter italic uppercase"
-                >
-                  CYTOSCAPE
-                </motion.h1>
-                <p className="text-emerald-400 font-mono text-sm tracking-widest uppercase">Immune Defense Protocol</p>
-              </div>
+        {gameState === 'menu' && menuView === 'upgrades' && (
+          <UpgradeScreen
+            profile={profile}
+            onProfileChange={setProfile}
+            onPlay={startGame}
+            onShowStats={() => setMenuView('stats')}
+          />
+        )}
 
-              <div className="grid grid-cols-2 gap-4 text-left">
-                <div className="bg-white/5 p-4 rounded-2xl border border-white/10">
-                  <div className="text-[10px] uppercase text-white/40 mb-1">Movement</div>
-                  <div className="text-sm font-mono">WASD / ARROWS</div>
-                </div>
-                <div className="bg-white/5 p-4 rounded-2xl border border-white/10">
-                  <div className="text-[10px] uppercase text-white/40 mb-1">Fire Antibodies</div>
-                  <div className="text-sm font-mono">SPACE / F</div>
-                </div>
-              </div>
-
-              <button
-                onClick={startGame}
-                className="group relative w-full py-4 bg-white text-black font-bold rounded-2xl overflow-hidden transition-transform active:scale-95"
-              >
-                <div className="absolute inset-0 bg-emerald-400 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
-                <span className="relative flex items-center justify-center gap-2">
-                  <Play className="w-5 h-5 fill-current" />
-                  INITIALIZE DEFENSE
-                </span>
-              </button>
-
-              {topScores.length > 0 && (
-                <div className="w-full space-y-2">
-                  <div className="text-[10px] uppercase text-white/40 tracking-widest text-center">Top Scores</div>
-                  <div className="bg-white/5 border border-white/10 rounded-2xl p-3 space-y-1 max-h-40 overflow-y-auto">
-                    {topScores.slice(0, 5).map((s, i) => (
-                      <div key={i} className="flex items-center justify-between font-mono text-xs">
-                        <span className="text-white/30 w-5">{i + 1}.</span>
-                        <span className="text-white font-bold flex-1 text-left pl-1">{s.score.toLocaleString()}</span>
-                        <span className="text-white/30">Lv.{s.level}</span>
-                        <span className="text-white/20 pl-2 text-[10px]">{s.date}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </motion.div>
+        {gameState === 'menu' && menuView === 'stats' && (
+          <StatsPanel
+            profile={profile}
+            onBack={() => setMenuView('upgrades')}
+          />
         )}
 
         {gameState === 'gameover' && (
@@ -818,6 +865,12 @@ export default function Game() {
                   )}
                 </div>
 
+                <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-3">
+                  <div className="text-[10px] uppercase text-yellow-400/60 tracking-widest">XP Earned</div>
+                  <div className="font-mono text-2xl font-bold text-yellow-400">+{score.toLocaleString()}</div>
+                  <div className="text-[10px] text-white/30 mt-1">Kills: {runKillsRef.current} · Level reached: {level}</div>
+                </div>
+
                 {topScores.length > 1 && (
                   <div className="space-y-1">
                     <div className="text-[10px] uppercase text-white/30 tracking-widest">Leaderboard</div>
@@ -835,16 +888,24 @@ export default function Game() {
                 )}
               </div>
 
-              <button
-                onClick={startGame}
-                className="group relative w-full py-4 bg-red-500 text-white font-bold rounded-2xl overflow-hidden transition-transform active:scale-95"
-              >
-                <div className="absolute inset-0 bg-red-600 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
-                <span className="relative flex items-center justify-center gap-2">
-                  <RefreshCw className="w-5 h-5" />
-                  RETRY PROTOCOL
-                </span>
-              </button>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setGameState('menu')}
+                  className="flex-1 py-3 bg-white/5 border border-white/10 text-white/60 font-bold rounded-2xl hover:bg-white/10 transition-colors"
+                >
+                  UPGRADES
+                </button>
+                <button
+                  onClick={startGame}
+                  className="group relative flex-[2] py-4 bg-red-500 text-white font-bold rounded-2xl overflow-hidden transition-transform active:scale-95"
+                >
+                  <div className="absolute inset-0 bg-red-600 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
+                  <span className="relative flex items-center justify-center gap-2">
+                    <RefreshCw className="w-5 h-5" />
+                    RETRY
+                  </span>
+                </button>
+              </div>
             </div>
           </motion.div>
         )}
