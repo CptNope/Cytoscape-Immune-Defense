@@ -2,7 +2,7 @@
 
 This document outlines planned features and expansion ideas for the game, organized by release version.
 
-> **Version history:** v1.0 initial release → v1.1 PWA & scores → v1.2 engine refactor & tests → v1.3 audio & feedback → v1.4 progression & unlockables → v1.5 new enemies & bosses → v1.6 game modes → v1.7 visual polish → v1.8 responsive design
+> **Version history:** v1.0 initial release → v1.1 PWA & scores → v1.2 engine refactor & tests → v1.3 audio & feedback → v1.4 progression & unlockables → v1.5 new enemies & bosses → v1.6 game modes → v1.7 visual polish → v1.8 responsive design → v1.9 mobile gameplay fixes
 
 ---
 
