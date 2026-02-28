@@ -5,6 +5,34 @@ All notable changes to Cytoscape: Immune Defense will be documented in this file
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.0] - 2026-02-27
+
+### Added
+- **Enhanced animated background** with layered visual depth:
+  - Deep plasma current streaks (bezier-curved, slow-moving)
+  - Far-depth biconcave red blood cells (small, faded, drifting)
+  - Mid-depth red blood cells (medium, slightly brighter)
+  - Tiny drifting platelets
+- **Ship damage visual states** based on health percentage:
+  - Below 60%: jagged crack lines appear on the hull (count increases as health drops)
+  - Below 30%: ship turns red, pulsing red warning glow, occasional flickering
+  - Below 15%: critical state — heavy flickering, bright red cracks
+- **Entity type labels** on all game objects:
+  - Pathogens show type name (e.g., "Virus", "Bacteria (armored)", "Prion")
+  - Bosses retain their existing health bar labels
+  - Power-ups show pickup name (e.g., "Rapid Fire", "Shield", "Bomb")
+  - Ship labeled "T-Cell"
+- **Trail effects** for swift variant pathogens and prions — fading motion trail behind fast-moving entities
+- **Biconcave RBC drawing function** (`drawRBC`) for realistic red blood cell shapes
+
+### Fixed
+- **Red flash/shake persisting after retry** — `shake`, `flash`, and `isPaused` are now reset in `initGame()` so visual effects don't carry over between runs
+
+### Changed
+- Background rendering completely rewritten with 4 visual depth layers
+- `drawShip` now accepts health parameters for damage-state rendering
+- `RenderState` interface extended with `shipHealth` and `shipMaxHealth`
+
 ## [1.6.0] - 2026-02-27
 
 ### Added

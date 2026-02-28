@@ -2,7 +2,7 @@
 
 This document outlines planned features and expansion ideas for the game, organized by release version.
 
-> **Version history:** v1.0 initial release → v1.1 PWA & scores → v1.2 engine refactor & tests → v1.3 audio & feedback → v1.4 progression & unlockables → v1.5 new enemies & bosses → v1.6 game modes
+> **Version history:** v1.0 initial release → v1.1 PWA & scores → v1.2 engine refactor & tests → v1.3 audio & feedback → v1.4 progression & unlockables → v1.5 new enemies & bosses → v1.6 game modes → v1.7 visual polish
 
 ---
 
@@ -49,12 +49,14 @@ This document outlines planned features and expansion ideas for the game, organi
 - [x] **Time Attack** — survive as long as possible with a countdown timer; kills add time
 - [x] **Zen Mode** — no damage, no scoring, relaxing exploration with ambient effects
 
-## v1.7 — Visual Polish
+## v1.7 — Visual Polish ✅
 
-- [ ] Animated background — flowing blood cells, plasma current effects
+- [x] Animated background — flowing blood cells, plasma current effects, drifting platelets
+- [x] Ship damage visual states — cracks, flickering at low health, red warning glow
+- [x] Trail effects for swift variant pathogens and prions
+- [x] Entity type labels on all game objects (pathogens, bosses, power-ups, ship)
+- [x] Power-up labels showing pickup name
 - [ ] Pathogen death animations — disintegration, cell lysis effects
-- [ ] Ship damage visual states — cracks, flickering at low health
-- [ ] Trail effects for swift variant pathogens
 - [ ] Level transition animation — "immune response escalating" screen
 - [ ] Dark/light theme toggle (microscope slide vs dark field)
 

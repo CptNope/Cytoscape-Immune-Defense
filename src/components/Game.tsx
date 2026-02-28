@@ -141,6 +141,9 @@ export default function Game() {
     setScore(0);
     setHealth(modifiersRef.current.maxHealth);
     setLevel(1);
+    setShake(0);
+    setFlash(0);
+    setIsPaused(false);
 
     // Reset run tracking
     runKillsRef.current = 0;
@@ -1115,6 +1118,8 @@ export default function Game() {
       shakeAngle: shakeAngleRef.current,
       flash,
       gameState,
+      shipHealth: health,
+      shipMaxHealth: modifiersRef.current.maxHealth,
     });
   };
 

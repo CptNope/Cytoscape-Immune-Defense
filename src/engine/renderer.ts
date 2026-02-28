@@ -18,6 +18,8 @@ export interface RenderState {
   shakeAngle?: number;
   flash: number;
   gameState: 'menu' | 'playing' | 'gameover';
+  shipHealth?: number;
+  shipMaxHealth?: number;
 }
 
 export function render(
@@ -68,24 +70,95 @@ export function render(
 
   // Draw Ship (T-Cell)
   if (gameState === 'playing') {
-    drawShip(ctx, ship, activePowerUps);
+    drawShip(ctx, ship, activePowerUps, state.shipHealth, state.shipMaxHealth);
   }
 
   ctx.restore(); // End Shake
 }
 
 function drawBackground(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement): void {
+  const t = Date.now() * 0.001;
+
+  // Layer 1: Deep plasma current streaks
   ctx.save();
-  ctx.globalAlpha = 0.1;
-  ctx.fillStyle = '#450a0a';
-  for (let i = 0; i < 15; i++) {
+  ctx.globalAlpha = 0.04;
+  for (let i = 0; i < 5; i++) {
+    const yBase = (canvas.height * (i + 0.5)) / 5;
+    const waveY = Math.sin(t * 0.3 + i * 1.2) * 40;
+    ctx.strokeStyle = '#7f1d1d';
+    ctx.lineWidth = 60 + Math.sin(t * 0.2 + i) * 20;
     ctx.beginPath();
-    const t = Date.now() * 0.0003;
-    const x = ((Math.sin(t + i * 2) * 0.5 + 0.5) * canvas.width + i * 50) % canvas.width;
-    const y = ((Math.cos(t * 0.5 + i) * 0.5 + 0.5) * canvas.height + i * 30) % canvas.height;
-    ctx.arc(x, y, 30 + (i % 5) * 10, 0, Math.PI * 2);
+    ctx.moveTo(-20, yBase + waveY);
+    ctx.bezierCurveTo(
+      canvas.width * 0.3, yBase + waveY + Math.sin(t * 0.4 + i) * 60,
+      canvas.width * 0.7, yBase + waveY - Math.sin(t * 0.35 + i) * 50,
+      canvas.width + 20, yBase + waveY + Math.cos(t * 0.25 + i) * 30
+    );
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // Layer 2: Far-depth red blood cells (small, faded)
+  ctx.save();
+  for (let i = 0; i < 12; i++) {
+    const speed = 0.15 + (i % 3) * 0.05;
+    const x = ((t * speed * 60 + i * 137) % (canvas.width + 60)) - 30;
+    const y = ((Math.sin(t * 0.2 + i * 2.3) * 0.3 + 0.5) * canvas.height + i * 67) % canvas.height;
+    const size = 12 + (i % 4) * 4;
+    const tilt = Math.sin(t * 0.5 + i) * 0.3;
+    ctx.globalAlpha = 0.06 + Math.sin(t * 0.3 + i) * 0.015;
+    drawRBC(ctx, x, y, size, tilt, '#991b1b');
+  }
+  ctx.restore();
+
+  // Layer 3: Mid-depth red blood cells (medium, slightly brighter)
+  ctx.save();
+  for (let i = 0; i < 10; i++) {
+    const speed = 0.25 + (i % 3) * 0.08;
+    const x = ((t * speed * 50 + i * 193 + 400) % (canvas.width + 80)) - 40;
+    const y = ((Math.cos(t * 0.15 + i * 1.7) * 0.35 + 0.5) * canvas.height + i * 89) % canvas.height;
+    const size = 20 + (i % 5) * 5;
+    const tilt = Math.sin(t * 0.4 + i * 0.7) * 0.4;
+    ctx.globalAlpha = 0.09 + Math.sin(t * 0.25 + i) * 0.02;
+    drawRBC(ctx, x, y, size, tilt, '#b91c1c');
+  }
+  ctx.restore();
+
+  // Layer 4: Tiny platelets drifting
+  ctx.save();
+  ctx.globalAlpha = 0.08;
+  ctx.fillStyle = '#fbbf24';
+  for (let i = 0; i < 20; i++) {
+    const px = ((t * 0.12 * 60 + i * 97) % canvas.width);
+    const py = ((t * 0.08 * 60 + i * 113 + Math.sin(t + i) * 20) % canvas.height);
+    const pr = 2 + (i % 3);
+    ctx.beginPath();
+    ctx.arc(px, py, pr, 0, Math.PI * 2);
     ctx.fill();
   }
+  ctx.restore();
+}
+
+/** Draw a biconcave red blood cell shape */
+function drawRBC(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, tilt: number, color: string): void {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(tilt);
+  ctx.scale(1, 0.45); // flatten for perspective
+
+  // Outer disc
+  ctx.beginPath();
+  ctx.arc(0, 0, size, 0, Math.PI * 2);
+  ctx.fillStyle = color;
+  ctx.fill();
+
+  // Inner dimple (lighter center for biconcave look)
+  ctx.beginPath();
+  ctx.arc(0, 0, size * 0.45, 0, Math.PI * 2);
+  ctx.fillStyle = '#450a0a';
+  ctx.globalAlpha = (ctx.globalAlpha || 0.1) * 0.5;
+  ctx.fill();
+
   ctx.restore();
 }
 
@@ -128,6 +201,16 @@ function drawPowerUps(ctx: CanvasRenderingContext2D, powerUps: PowerUp[]): void 
     ctx.fillText(icon, 0, 0);
 
     ctx.restore();
+
+    // Power-up label
+    ctx.save();
+    ctx.globalAlpha = 0.6;
+    ctx.fillStyle = color;
+    ctx.font = 'bold 8px monospace';
+    ctx.textAlign = 'center';
+    const pLabel = p.type === 'rapid_fire' ? 'Rapid Fire' : p.type === 'shield' ? 'Shield' : p.type === 'damage_boost' ? 'Dmg Boost' : 'Bomb';
+    ctx.fillText(pLabel, p.pos.x, p.pos.y + 16);
+    ctx.restore();
   });
 }
 
@@ -161,6 +244,32 @@ function drawAntibodies(ctx: CanvasRenderingContext2D, antibodies: Antibody[]): 
 }
 
 function drawPathogens(ctx: CanvasRenderingContext2D, pathogens: Pathogen[]): void {
+  // Draw trails first (behind everything)
+  pathogens.forEach(p => {
+    if (p.variant === 'swift' || p.type === 'prion') {
+      const spd = Math.sqrt(p.vel.x * p.vel.x + p.vel.y * p.vel.y);
+      if (spd > 0.5) {
+        const trailColor = p.type === 'prion' ? '#94a3b8' : '#38bdf8';
+        const trailLen = Math.min(5, Math.floor(spd));
+        ctx.save();
+        for (let t = 1; t <= trailLen; t++) {
+          const alpha = 0.08 * (1 - t / (trailLen + 1));
+          ctx.globalAlpha = alpha;
+          ctx.fillStyle = trailColor;
+          ctx.beginPath();
+          ctx.arc(
+            p.pos.x - p.vel.x * t * 2,
+            p.pos.y - p.vel.y * t * 2,
+            p.radius * (1 - t * 0.1),
+            0, Math.PI * 2
+          );
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+    }
+  });
+
   pathogens.forEach(p => {
     // Draw worm segments first (behind the head)
     if (p.isBoss && p.bossType === 'parasitic_worm' && p.segments) {
@@ -244,6 +353,19 @@ function drawPathogens(ctx: CanvasRenderingContext2D, pathogens: Pathogen[]): vo
     }
 
     ctx.restore();
+
+    // Entity type label (drawn un-rotated, below the entity)
+    if (!p.isBoss) {
+      ctx.save();
+      ctx.globalAlpha = 0.55;
+      ctx.fillStyle = color;
+      ctx.font = 'bold 9px monospace';
+      ctx.textAlign = 'center';
+      const typeName = p.type.charAt(0).toUpperCase() + p.type.slice(1);
+      const variantSuffix = p.variant ? ` (${p.variant})` : '';
+      ctx.fillText(typeName + variantSuffix, p.pos.x, p.pos.y + p.radius + 12);
+      ctx.restore();
+    }
 
     // Boss health bar (drawn un-rotated, above the boss)
     if (p.isBoss && p.maxHealth > 0) {
@@ -503,21 +625,63 @@ function drawBossHealthBar(ctx: CanvasRenderingContext2D, p: Pathogen): void {
   ctx.globalAlpha = 1;
 }
 
-function drawShip(ctx: CanvasRenderingContext2D, ship: Ship, activePowerUps: ActivePowerUps): void {
+function drawShip(ctx: CanvasRenderingContext2D, ship: Ship, activePowerUps: ActivePowerUps, shipHealth?: number, shipMaxHealth?: number): void {
+  const healthPct = (shipHealth !== undefined && shipMaxHealth) ? shipHealth / shipMaxHealth : 1;
+  const isLow = healthPct <= 0.3;
+  const isCritical = healthPct <= 0.15;
+
+  // Flickering at low health
+  if (isLow && Math.random() < (isCritical ? 0.3 : 0.1)) return;
+
   ctx.save();
   ctx.translate(ship.pos.x, ship.pos.y);
   ctx.rotate(ship.rotation);
 
+  // Warning glow when low health
+  if (isLow) {
+    const pulse = Math.sin(Date.now() * 0.008) * 0.15 + 0.15;
+    ctx.globalAlpha = pulse;
+    ctx.fillStyle = '#ef4444';
+    ctx.beginPath();
+    ctx.arc(0, 0, ship.radius + 12, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
   // Main Body
-  ctx.strokeStyle = '#ffffff';
-  ctx.shadowColor = '#ffffff';
+  ctx.strokeStyle = isLow ? (isCritical ? '#ef4444' : '#fca5a5') : '#ffffff';
+  ctx.shadowColor = isLow ? '#ef4444' : '#ffffff';
   ctx.shadowBlur = 15;
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+  ctx.fillStyle = isLow ? 'rgba(239, 68, 68, 0.08)' : 'rgba(255, 255, 255, 0.1)';
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.arc(0, 0, ship.radius, 0, Math.PI * 2);
   ctx.stroke();
   ctx.fill();
+
+  // Crack lines when damaged (below 60% health)
+  if (healthPct < 0.6) {
+    ctx.save();
+    ctx.strokeStyle = isLow ? '#ef4444' : 'rgba(255, 255, 255, 0.3)';
+    ctx.lineWidth = 1;
+    ctx.shadowBlur = 0;
+    const crackCount = healthPct < 0.3 ? 5 : healthPct < 0.5 ? 3 : 1;
+    for (let c = 0; c < crackCount; c++) {
+      const angle = (c * 1.7 + 0.5);
+      const startR = ship.radius * 0.3;
+      const endR = ship.radius * (0.7 + c * 0.06);
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(angle) * startR, Math.sin(angle) * startR);
+      // Jagged crack
+      const mid1R = startR + (endR - startR) * 0.4;
+      const mid2R = startR + (endR - startR) * 0.7;
+      ctx.lineTo(Math.cos(angle + 0.15) * mid1R, Math.sin(angle + 0.15) * mid1R);
+      ctx.lineTo(Math.cos(angle - 0.1) * mid2R, Math.sin(angle - 0.1) * mid2R);
+      ctx.lineTo(Math.cos(angle + 0.05) * endR, Math.sin(angle + 0.05) * endR);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
 
   // Nucleus
   ctx.beginPath();
@@ -570,5 +734,14 @@ function drawShip(ctx: CanvasRenderingContext2D, ship: Ship, activePowerUps: Act
     ctx.stroke();
   }
 
+  ctx.restore();
+
+  // "T-Cell" label below ship
+  ctx.save();
+  ctx.globalAlpha = 0.45;
+  ctx.fillStyle = isLow ? '#ef4444' : '#ffffff';
+  ctx.font = 'bold 9px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('T-Cell', ship.pos.x, ship.pos.y + ship.radius + 14);
   ctx.restore();
 }
