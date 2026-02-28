@@ -1,0 +1,90 @@
+# Roadmap — Cytoscape: Immune Defense
+
+This document outlines planned features and expansion ideas for the game, organized by release phase.
+
+---
+
+## v1.2 — Audio & Feedback
+
+- [ ] Sound effects — thrust, fire, explosions, power-up pickup, damage hit, level clear
+- [ ] Background music — ambient biological/electronic soundtrack
+- [ ] Volume controls and mute toggle (persisted to localStorage)
+- [ ] Haptic feedback on mobile (vibration API) for damage and power-ups
+- [ ] Improved screen shake with directional bias
+
+## v1.3 — Progression & Unlockables
+
+- [ ] **XP/Leveling system** — earn XP across runs, unlock permanent upgrades
+- [ ] **Upgrade tree** — spend XP on ship stats:
+  - Hull integrity (more health)
+  - Thruster power (faster acceleration)
+  - Antibody potency (more damage)
+  - Rapid response (faster fire rate base)
+  - Membrane shield (longer shield duration)
+- [ ] **Cytokine signals** (passive abilities) — unlocked at level milestones:
+  - Auto-targeting antibodies
+  - Regeneration (slow health recovery)
+  - Chain reaction (explosions damage nearby pathogens)
+- [ ] Stats tracking — total kills, total score, time played, pathogens killed by type
+
+## v1.4 — New Enemies & Bosses
+
+- [ ] **Prion** — tiny, fast, nearly invisible, appears in swarms
+- [ ] **Cancer cell** — doesn't move but grows over time, spawns smaller copies
+- [ ] **Biofilm** — bacteria cluster that must be broken apart before individual bacteria can be killed
+- [ ] **Boss fights** every 5 levels:
+  - Level 5: **Mega Virus** — large virus with shield phases
+  - Level 10: **Bacterial Colony** — connected bacteria chain that splits
+  - Level 15: **Parasitic Worm** — multi-segment entity that tracks aggressively
+  - Level 20: **Fungal Bloom** — fills screen with spore clouds, must destroy central core
+
+## v1.5 — Game Modes
+
+- [ ] **Endless Mode** — current mode, renamed
+- [ ] **Campaign Mode** — 20 structured levels with story text between waves
+  - Story: follow the immune response from initial infection to recovery
+  - Introduce pathogen types gradually with tutorial text
+- [ ] **Time Attack** — survive as long as possible with a countdown timer; kills add time
+- [ ] **Zen Mode** — no damage, no scoring, relaxing exploration with ambient effects
+
+## v1.6 — Visual Polish
+
+- [ ] Animated background — flowing blood cells, plasma current effects
+- [ ] Pathogen death animations — disintegration, cell lysis effects
+- [ ] Ship damage visual states — cracks, flickering at low health
+- [ ] Trail effects for swift variant pathogens
+- [ ] Level transition animation — "immune response escalating" screen
+- [ ] Dark/light theme toggle (microscope slide vs dark field)
+
+## v2.0 — Multiplayer & Social
+
+- [ ] **Online leaderboard** — global high scores via serverless API (Cloudflare Workers or Supabase)
+- [ ] **Daily challenges** — unique seed-based runs with shared leaderboard
+- [ ] **Co-op mode** (stretch goal) — two players on same screen via WebRTC
+- [ ] Share score card — generate shareable image with score, level, and stats
+- [ ] Achievement system with badges
+
+## v2.1 — Accessibility & Platform
+
+- [ ] Colorblind mode — distinct shapes/patterns per pathogen type instead of color-only
+- [ ] Reduced motion mode — disable particles, screen shake, scanlines
+- [ ] Keyboard remapping
+- [ ] Gamepad support (Gamepad API)
+- [ ] Screen reader announcements for menus and game state changes
+
+---
+
+## Technical Debt & Maintenance
+
+- [ ] Extract game engine into separate module (decouple from React component)
+- [ ] Add unit tests for physics and collision detection
+- [ ] Add E2E tests with Playwright
+- [ ] Performance profiling — optimize particle system for low-end devices
+- [ ] Bundle size optimization — lazy load non-critical assets
+- [ ] Migrate to Web Workers for game loop (keep UI thread free)
+
+---
+
+## Contributing
+
+Ideas and PRs welcome! If you'd like to work on any of these, open an issue first to discuss the approach.

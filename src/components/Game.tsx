@@ -7,7 +7,18 @@ import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Shield, Zap, Activity, RefreshCw, Play, Trophy } from 'lucide-react';
 
+// --- Constants ---
+
+const SCORES_STORAGE_KEY = 'cytoscape-top-scores';
+const MAX_TOP_SCORES = 10;
+
 // --- Types ---
+
+interface ScoreEntry {
+  score: number;
+  level: number;
+  date: string;
+}
 
 interface Vector {
   x: number;
@@ -59,7 +70,7 @@ interface FloatingText {
   size: number;
 }
 
-// --- Constants ---
+// --- Game Constants ---
 
 const FPS = 60;
 const FRICTION = 0.98;
@@ -70,6 +81,33 @@ const BULLET_LIFE = 60;
 const PATHOGEN_MIN_RADIUS = 15;
 const PATHOGEN_MAX_RADIUS = 50;
 const INITIAL_PATHOGEN_COUNT = 5;
+
+// --- Score Persistence ---
+
+const loadTopScores = (): ScoreEntry[] => {
+  try {
+    const raw = localStorage.getItem(SCORES_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.slice(0, MAX_TOP_SCORES);
+  } catch {
+    return [];
+  }
+};
+
+const saveTopScore = (entry: ScoreEntry): ScoreEntry[] => {
+  const scores = loadTopScores();
+  scores.push(entry);
+  scores.sort((a, b) => b.score - a.score);
+  const top = scores.slice(0, MAX_TOP_SCORES);
+  try {
+    localStorage.setItem(SCORES_STORAGE_KEY, JSON.stringify(top));
+  } catch {
+    // localStorage full or unavailable — silently fail
+  }
+  return top;
+};
 
 // --- Helper Functions ---
 
@@ -83,7 +121,8 @@ export default function Game() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [gameState, setGameState] = useState<'menu' | 'playing' | 'gameover'>('menu');
   const [score, setScore] = useState(0);
-  const [highScore, setHighScore] = useState(0);
+  const [topScores, setTopScores] = useState<ScoreEntry[]>([]);
+  const [lastScoreRank, setLastScoreRank] = useState<number | null>(null);
   const [level, setLevel] = useState(1);
   const [health, setHealth] = useState(100);
   const [shake, setShake] = useState(0);
@@ -877,12 +916,25 @@ export default function Game() {
   }, [gameState, level]);
 
   useEffect(() => {
-    if (score > highScore) {
-      setHighScore(score);
+    setTopScores(loadTopScores());
+  }, []);
+
+  useEffect(() => {
+    if (gameState === 'gameover' && score > 0) {
+      const entry: ScoreEntry = {
+        score,
+        level,
+        date: new Date().toLocaleDateString(),
+      };
+      const updated = saveTopScore(entry);
+      setTopScores(updated);
+      const rank = updated.findIndex(s => s.score === score && s.date === entry.date);
+      setLastScoreRank(rank >= 0 ? rank : null);
     }
-  }, [score]);
+  }, [gameState]);
 
   const startGame = () => {
+    setLastScoreRank(null);
     initGame();
     setGameState('playing');
   };
@@ -1065,9 +1117,19 @@ export default function Game() {
                 </span>
               </button>
 
-              {highScore > 0 && (
-                <div className="text-white/40 font-mono text-sm">
-                  HIGHEST BIO-SCORE: {highScore.toLocaleString()}
+              {topScores.length > 0 && (
+                <div className="w-full space-y-2">
+                  <div className="text-[10px] uppercase text-white/40 tracking-widest text-center">Top Scores</div>
+                  <div className="bg-white/5 border border-white/10 rounded-2xl p-3 space-y-1 max-h-40 overflow-y-auto">
+                    {topScores.slice(0, 5).map((s, i) => (
+                      <div key={i} className="flex items-center justify-between font-mono text-xs">
+                        <span className="text-white/30 w-5">{i + 1}.</span>
+                        <span className="text-white font-bold flex-1 text-left pl-1">{s.score.toLocaleString()}</span>
+                        <span className="text-white/30">Lv.{s.level}</span>
+                        <span className="text-white/20 pl-2 text-[10px]">{s.date}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
@@ -1087,9 +1149,32 @@ export default function Game() {
                 <p className="text-white/60 font-mono text-sm">The pathogens have overwhelmed the host.</p>
               </div>
 
-              <div className="py-8 border-y border-white/10">
-                <div className="text-xs uppercase text-white/40 mb-2 tracking-widest">Final Score</div>
-                <div className="text-6xl font-mono font-bold">{score.toLocaleString()}</div>
+              <div className="py-6 border-y border-white/10 space-y-4">
+                <div>
+                  <div className="text-xs uppercase text-white/40 mb-2 tracking-widest">Final Score</div>
+                  <div className="text-6xl font-mono font-bold">{score.toLocaleString()}</div>
+                  {lastScoreRank !== null && lastScoreRank < 3 && (
+                    <div className="text-emerald-400 font-mono text-sm mt-1">
+                      {lastScoreRank === 0 ? 'NEW #1 RECORD!' : `#${lastScoreRank + 1} ALL TIME`}
+                    </div>
+                  )}
+                </div>
+
+                {topScores.length > 1 && (
+                  <div className="space-y-1">
+                    <div className="text-[10px] uppercase text-white/30 tracking-widest">Leaderboard</div>
+                    {topScores.slice(0, 5).map((s, i) => (
+                      <div key={i} className={`flex items-center justify-between font-mono text-xs px-2 py-0.5 rounded ${
+                        lastScoreRank === i ? 'bg-emerald-500/10 border border-emerald-500/20' : ''
+                      }`}>
+                        <span className="text-white/30 w-5">{i + 1}.</span>
+                        <span className="text-white font-bold flex-1 text-left pl-1">{s.score.toLocaleString()}</span>
+                        <span className="text-white/30">Lv.{s.level}</span>
+                        <span className="text-white/20 pl-2 text-[10px]">{s.date}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <button
