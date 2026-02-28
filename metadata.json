@@ -1,0 +1,5 @@
+{
+  "name": "Cytoscape: Immune Defense",
+  "description": "A cellular biology themed Asteroids game where you control a T-cell defending against invading pathogens.",
+  "requestFramePermissions": []
+}
