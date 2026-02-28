@@ -122,6 +122,58 @@ export const DAMAGE_PER_LEVEL = 0.25;
 export const SHOT_DELAY_REDUCTION_PER_LEVEL = 15;  // ms
 export const SHIELD_FRAMES_PER_LEVEL = 50;
 
+// --- New Enemy Tuning ---
+
+// Prion
+export const PRION_RADIUS = 8;
+export const PRION_SPEED = 3.5;
+export const PRION_HEALTH = 1;
+export const PRION_SWARM_SIZE = 6;
+export const PRION_OPACITY = 0.3;
+export const PRION_POINTS = 25;
+export const PRION_MIN_LEVEL = 3;
+
+// Cancer Cell
+export const CANCER_INITIAL_RADIUS = 20;
+export const CANCER_MAX_RADIUS = 60;
+export const CANCER_GROWTH_RATE = 0.02;     // radius per frame
+export const CANCER_SPAWN_INTERVAL = 600;   // frames between spawning copies (10s)
+export const CANCER_HEALTH_PER_RADIUS = 0.3;
+export const CANCER_POINTS = 80;
+export const CANCER_MIN_LEVEL = 5;
+
+// Biofilm
+export const BIOFILM_RADIUS = 45;
+export const BIOFILM_SHIELD_HEALTH = 8;
+export const BIOFILM_INNER_HEALTH = 4;
+export const BIOFILM_POINTS = 120;
+export const BIOFILM_MIN_LEVEL = 7;
+
+// Boss tuning
+export const BOSS_LEVELS = [5, 10, 15, 20] as const;
+
+export const MEGA_VIRUS_RADIUS = 70;
+export const MEGA_VIRUS_HEALTH = 40;
+export const MEGA_VIRUS_POINTS = 500;
+export const MEGA_VIRUS_SHIELD_PHASE_DURATION = 180;  // 3s invulnerable
+export const MEGA_VIRUS_VULNERABLE_DURATION = 300;    // 5s vulnerable
+
+export const BACTERIAL_COLONY_SEGMENTS = 6;
+export const BACTERIAL_COLONY_SEGMENT_RADIUS = 25;
+export const BACTERIAL_COLONY_HEALTH = 8;   // per segment
+export const BACTERIAL_COLONY_POINTS = 600;
+
+export const PARASITIC_WORM_SEGMENTS = 8;
+export const PARASITIC_WORM_HEAD_RADIUS = 22;
+export const PARASITIC_WORM_HEALTH = 50;
+export const PARASITIC_WORM_SPEED = 2.5;
+export const PARASITIC_WORM_POINTS = 800;
+
+export const FUNGAL_BLOOM_RADIUS = 80;
+export const FUNGAL_BLOOM_HEALTH = 60;
+export const FUNGAL_BLOOM_POINTS = 1000;
+export const FUNGAL_BLOOM_SPORE_INTERVAL = 120;  // frames between spore clouds
+
 // Cytokine tuning
 export const AUTO_TARGET_STRENGTH = 0.03;           // radians per frame turn rate
 export const REGEN_INTERVAL = 300;                   // frames (5 seconds at 60fps)

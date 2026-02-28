@@ -2,7 +2,7 @@
 
 This document outlines planned features and expansion ideas for the game, organized by release version.
 
-> **Version history:** v1.0 initial release → v1.1 PWA & scores → v1.2 engine refactor & tests → v1.3 audio & feedback → v1.4 progression & unlockables
+> **Version history:** v1.0 initial release → v1.1 PWA & scores → v1.2 engine refactor & tests → v1.3 audio & feedback → v1.4 progression & unlockables → v1.5 new enemies & bosses
 
 ---
 
@@ -29,12 +29,12 @@ This document outlines planned features and expansion ideas for the game, organi
   - Chain reaction (explosions damage nearby pathogens)
 - [x] Stats tracking — total kills, total score, time played, pathogens killed by type
 
-## v1.5 — New Enemies & Bosses
+## v1.5 — New Enemies & Bosses ✅
 
-- [ ] **Prion** — tiny, fast, nearly invisible, appears in swarms
-- [ ] **Cancer cell** — doesn't move but grows over time, spawns smaller copies
-- [ ] **Biofilm** — bacteria cluster that must be broken apart before individual bacteria can be killed
-- [ ] **Boss fights** every 5 levels:
+- [x] **Prion** — tiny, fast, nearly invisible, appears in swarms
+- [x] **Cancer cell** — doesn't move but grows over time, spawns smaller copies
+- [x] **Biofilm** — bacteria cluster that must be broken apart before individual bacteria can be killed
+- [x] **Boss fights** every 5 levels:
   - Level 5: **Mega Virus** — large virus with shield phases
   - Level 10: **Bacterial Colony** — connected bacteria chain that splits
   - Level 15: **Parasitic Worm** — multi-segment entity that tracks aggressively

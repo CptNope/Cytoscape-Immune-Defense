@@ -5,6 +5,32 @@ All notable changes to Cytoscape: Immune Defense will be documented in this file
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2026-02-27
+
+### Added
+- **3 new enemy types** with unique behaviors:
+  - **Prion** — tiny (radius 8), fast, nearly invisible (30% opacity, flickering), appears in swarms of 6, starting at level 3
+  - **Cancer Cell** — stationary, grows over time (radius 20→60), periodically spawns smaller copies every 10s, starting at level 5
+  - **Biofilm** — bacteria cluster (radius 45) with a protective shield layer (8 HP) that must be broken before inner bacteria (4 HP) can be damaged, starting at level 7
+- **Boss fights** every 5 levels with unique mechanics:
+  - **Level 5: Mega Virus** — large (radius 70, 40 HP), alternates between invulnerable shield phase (3s) and vulnerable phase (5s)
+  - **Level 10: Bacterial Colony** — chain of 6 connected segments (48 HP total), splits into individual bacteria on death
+  - **Level 15: Parasitic Worm** — 8-segment snake entity (50 HP) that aggressively tracks the player, segments follow the head
+  - **Level 20: Fungal Bloom** — massive (radius 80, 60 HP), periodically spawns spore clouds in all directions
+- **Boss health bars** with labeled name displayed above each boss
+- **Boss SFX**: ominous rising horn + rumble on boss spawn, triumphant fanfare on boss defeat
+- Boss levels spawn fewer regular pathogens alongside the boss
+- Visual effects: Mega Virus shield glow, Fungal Bloom pulsing aura, Parasitic Worm connected segments, Biofilm shield layer, Cancer Cell mitosis inner details, Prion jagged shapes with opacity
+- Kill color coding for new types: prion (slate), cancer (pink), biofilm (sky blue)
+- New enemy types do not split on death (unlike regular pathogens)
+- 36 new unit tests for the progression system (XP, upgrades, cytokines, stats, modifiers)
+
+### Changed
+- `Pathogen` type extended with `PathogenType` and `BossType` unions, `maxHealth`, and optional fields for boss/cancer/biofilm/prion mechanics
+- Pathogen rendering refactored with dedicated draw functions per type
+- Level progression now spawns new enemy types with increasing probability based on current level
+- Boss levels override normal wave spawning with boss + reduced escort pathogens
+
 ## [1.4.0] - 2026-02-27
 
 ### Added

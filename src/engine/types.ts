@@ -15,14 +15,32 @@ export interface Entity {
   rotation: number;
 }
 
+export type PathogenType = 'virus' | 'bacteria' | 'parasite' | 'fungus' | 'prion' | 'cancer' | 'biofilm';
+export type BossType = 'mega_virus' | 'bacterial_colony' | 'parasitic_worm' | 'fungal_bloom';
+
 export interface Pathogen extends Entity {
   id: number;
-  type: 'virus' | 'bacteria' | 'parasite' | 'fungus';
+  type: PathogenType;
   variant?: 'armored' | 'swift' | 'stalker';
   health: number;
+  maxHealth: number;
   points: number;
   sides: number;
   noise: number[];
+  // Prion: low opacity, swarm member
+  opacity?: number;
+  // Cancer: grows over time, spawn timer
+  growthRate?: number;
+  spawnTimer?: number;
+  // Biofilm: shield layer that must be destroyed first
+  shieldHealth?: number;
+  maxShieldHealth?: number;
+  // Boss fields
+  isBoss?: boolean;
+  bossType?: BossType;
+  phase?: number;           // boss phase (for multi-phase bosses)
+  phaseTimer?: number;      // frames in current phase
+  segments?: Vector[];       // for parasitic worm segments
 }
 
 export interface Antibody extends Entity {

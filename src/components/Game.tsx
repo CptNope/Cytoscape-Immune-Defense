@@ -9,12 +9,22 @@ import { Zap, Activity, RefreshCw, Trophy } from 'lucide-react';
 import {
   type Vector, type Pathogen, type Antibody, type Particle, type PowerUp,
   type FloatingText, type ScoreEntry, type Ship, type ActivePowerUps, type VirtualControls,
-  type PlayerProfile, type GameModifiers,
+  type PlayerProfile, type GameModifiers, type PathogenType, type BossType,
   FRICTION, SHIP_TURN_SPEED, BULLET_SPEED, BULLET_LIFE,
   PATHOGEN_MIN_RADIUS, PATHOGEN_MAX_RADIUS, INITIAL_PATHOGEN_COUNT, MAX_PARTICLES,
   POWERUP_DROP_RATE, POWERUP_LIFETIME,
   AUTO_TARGET_STRENGTH, REGEN_INTERVAL, REGEN_AMOUNT,
   CHAIN_REACTION_RADIUS, CHAIN_REACTION_DAMAGE,
+  PRION_RADIUS, PRION_SPEED, PRION_HEALTH, PRION_SWARM_SIZE, PRION_OPACITY, PRION_POINTS, PRION_MIN_LEVEL,
+  CANCER_INITIAL_RADIUS, CANCER_MAX_RADIUS, CANCER_GROWTH_RATE, CANCER_SPAWN_INTERVAL,
+  CANCER_HEALTH_PER_RADIUS, CANCER_POINTS, CANCER_MIN_LEVEL,
+  BIOFILM_RADIUS, BIOFILM_SHIELD_HEALTH, BIOFILM_INNER_HEALTH, BIOFILM_POINTS, BIOFILM_MIN_LEVEL,
+  BOSS_LEVELS,
+  MEGA_VIRUS_RADIUS, MEGA_VIRUS_HEALTH, MEGA_VIRUS_POINTS,
+  MEGA_VIRUS_SHIELD_PHASE_DURATION, MEGA_VIRUS_VULNERABLE_DURATION,
+  BACTERIAL_COLONY_SEGMENTS, BACTERIAL_COLONY_SEGMENT_RADIUS, BACTERIAL_COLONY_HEALTH, BACTERIAL_COLONY_POINTS,
+  PARASITIC_WORM_SEGMENTS, PARASITIC_WORM_HEAD_RADIUS, PARASITIC_WORM_HEALTH, PARASITIC_WORM_SPEED, PARASITIC_WORM_POINTS,
+  FUNGAL_BLOOM_RADIUS, FUNGAL_BLOOM_HEALTH, FUNGAL_BLOOM_POINTS, FUNGAL_BLOOM_SPORE_INTERVAL,
   randomRange, distance, circlesCollide, wrapPosition, applyVelocity, applyFriction,
   angleToTarget, speed, clampSpeed,
   loadTopScores, saveTopScore,
@@ -165,6 +175,7 @@ export default function Game() {
     if (type === 'virus' && variantRoll < 0.3) variant = 'swift';
     if (type === 'parasite' && variantRoll < 0.3) variant = 'stalker';
 
+    const hp = (radius / 10) * (type === 'fungus' ? 2 : 1) * (variant === 'armored' ? 2.5 : variant === 'swift' ? 0.6 : 1);
     pathogensRef.current.push({
       id: nextIdRef.current++,
       pos,
@@ -176,11 +187,191 @@ export default function Game() {
       rotation: Math.random() * Math.PI * 2,
       type,
       variant,
-      health: (radius / 10) * (type === 'fungus' ? 2 : 1) * (variant === 'armored' ? 2.5 : variant === 'swift' ? 0.6 : 1),
+      health: hp,
+      maxHealth: hp,
       points: Math.floor(100 / radius) * 10 * (type === 'parasite' ? 2 : 1) * (variant ? 1.5 : 1),
       sides: variant === 'swift' ? 16 : 10,
       noise
     });
+  };
+
+  // --- New Enemy Spawners ---
+
+  const spawnPrionSwarm = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const centerX = Math.random() * canvas.width;
+    const centerY = Math.random() * canvas.height;
+    for (let i = 0; i < PRION_SWARM_SIZE; i++) {
+      const angle = (Math.PI * 2 * i) / PRION_SWARM_SIZE + randomRange(-0.3, 0.3);
+      const dist = randomRange(20, 50);
+      pathogensRef.current.push({
+        id: nextIdRef.current++,
+        pos: { x: centerX + Math.cos(angle) * dist, y: centerY + Math.sin(angle) * dist },
+        vel: { x: randomRange(-PRION_SPEED, PRION_SPEED), y: randomRange(-PRION_SPEED, PRION_SPEED) },
+        radius: PRION_RADIUS,
+        rotation: Math.random() * Math.PI * 2,
+        type: 'prion',
+        health: PRION_HEALTH,
+        maxHealth: PRION_HEALTH,
+        points: PRION_POINTS,
+        sides: 5,
+        noise: Array.from({ length: 5 }, () => randomRange(0.8, 1.2)),
+        opacity: PRION_OPACITY,
+      });
+    }
+  };
+
+  const spawnCancerCell = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    let pos: Vector;
+    do {
+      pos = { x: Math.random() * canvas.width, y: Math.random() * canvas.height };
+    } while (distance(pos, shipRef.current.pos) < 200);
+    const hp = CANCER_INITIAL_RADIUS * CANCER_HEALTH_PER_RADIUS;
+    pathogensRef.current.push({
+      id: nextIdRef.current++,
+      pos,
+      vel: { x: 0, y: 0 },
+      radius: CANCER_INITIAL_RADIUS,
+      rotation: Math.random() * Math.PI * 2,
+      type: 'cancer',
+      health: hp,
+      maxHealth: hp,
+      points: CANCER_POINTS,
+      sides: 12,
+      noise: Array.from({ length: 12 }, () => randomRange(0.85, 1.15)),
+      growthRate: CANCER_GROWTH_RATE,
+      spawnTimer: CANCER_SPAWN_INTERVAL,
+    });
+  };
+
+  const spawnBiofilm = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    let pos: Vector;
+    do {
+      pos = { x: Math.random() * canvas.width, y: Math.random() * canvas.height };
+    } while (distance(pos, shipRef.current.pos) < 250);
+    pathogensRef.current.push({
+      id: nextIdRef.current++,
+      pos,
+      vel: { x: randomRange(-0.5, 0.5), y: randomRange(-0.5, 0.5) },
+      radius: BIOFILM_RADIUS,
+      rotation: Math.random() * Math.PI * 2,
+      type: 'biofilm',
+      health: BIOFILM_INNER_HEALTH,
+      maxHealth: BIOFILM_INNER_HEALTH,
+      points: BIOFILM_POINTS,
+      sides: 16,
+      noise: Array.from({ length: 16 }, () => randomRange(0.9, 1.1)),
+      shieldHealth: BIOFILM_SHIELD_HEALTH,
+      maxShieldHealth: BIOFILM_SHIELD_HEALTH,
+    });
+  };
+
+  // --- Boss Spawner ---
+
+  const spawnBoss = (bossLevel: number) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const cx = canvas.width / 2;
+    const cy = canvas.height / 2;
+    // Spawn boss opposite to the player
+    const ship = shipRef.current;
+    const angle = Math.atan2(cy - ship.pos.y, cx - ship.pos.x);
+    const bx = cx + Math.cos(angle) * 150;
+    const by = cy + Math.sin(angle) * 150;
+
+    if (bossLevel === 5) {
+      // Mega Virus
+      const hp = MEGA_VIRUS_HEALTH;
+      pathogensRef.current.push({
+        id: nextIdRef.current++,
+        pos: { x: bx, y: by },
+        vel: { x: randomRange(-1, 1), y: randomRange(-1, 1) },
+        radius: MEGA_VIRUS_RADIUS,
+        rotation: 0,
+        type: 'virus',
+        health: hp,
+        maxHealth: hp,
+        points: MEGA_VIRUS_POINTS,
+        sides: 12,
+        noise: Array.from({ length: 12 }, () => randomRange(0.8, 1.2)),
+        isBoss: true,
+        bossType: 'mega_virus',
+        phase: 1, // 0 = shielded, 1 = vulnerable
+        phaseTimer: MEGA_VIRUS_VULNERABLE_DURATION,
+      });
+    } else if (bossLevel === 10) {
+      // Bacterial Colony — chain of connected segments (spawned as one entity with segments array)
+      const hp = BACTERIAL_COLONY_HEALTH * BACTERIAL_COLONY_SEGMENTS;
+      const segments: Vector[] = [];
+      for (let i = 0; i < BACTERIAL_COLONY_SEGMENTS; i++) {
+        segments.push({ x: bx + i * BACTERIAL_COLONY_SEGMENT_RADIUS * 1.5, y: by });
+      }
+      pathogensRef.current.push({
+        id: nextIdRef.current++,
+        pos: { x: bx, y: by },
+        vel: { x: randomRange(-1, 1), y: randomRange(-1, 1) },
+        radius: BACTERIAL_COLONY_SEGMENT_RADIUS,
+        rotation: 0,
+        type: 'bacteria',
+        health: hp,
+        maxHealth: hp,
+        points: BACTERIAL_COLONY_POINTS,
+        sides: 8,
+        noise: Array.from({ length: 8 }, () => randomRange(0.85, 1.15)),
+        isBoss: true,
+        bossType: 'bacterial_colony',
+        segments,
+      });
+    } else if (bossLevel === 15) {
+      // Parasitic Worm
+      const hp = PARASITIC_WORM_HEALTH;
+      const segments: Vector[] = [];
+      for (let i = 0; i < PARASITIC_WORM_SEGMENTS; i++) {
+        segments.push({ x: bx - i * PARASITIC_WORM_HEAD_RADIUS, y: by });
+      }
+      pathogensRef.current.push({
+        id: nextIdRef.current++,
+        pos: { x: bx, y: by },
+        vel: { x: 0, y: 0 },
+        radius: PARASITIC_WORM_HEAD_RADIUS,
+        rotation: 0,
+        type: 'parasite',
+        health: hp,
+        maxHealth: hp,
+        points: PARASITIC_WORM_POINTS,
+        sides: 6,
+        noise: Array.from({ length: 6 }, () => randomRange(0.9, 1.1)),
+        isBoss: true,
+        bossType: 'parasitic_worm',
+        segments,
+      });
+    } else if (bossLevel === 20) {
+      // Fungal Bloom
+      const hp = FUNGAL_BLOOM_HEALTH;
+      pathogensRef.current.push({
+        id: nextIdRef.current++,
+        pos: { x: bx, y: by },
+        vel: { x: 0, y: 0 },
+        radius: FUNGAL_BLOOM_RADIUS,
+        rotation: 0,
+        type: 'fungus',
+        health: hp,
+        maxHealth: hp,
+        points: FUNGAL_BLOOM_POINTS,
+        sides: 20,
+        noise: Array.from({ length: 20 }, () => randomRange(0.85, 1.15)),
+        isBoss: true,
+        bossType: 'fungal_bloom',
+        spawnTimer: FUNGAL_BLOOM_SPORE_INTERVAL,
+        phase: 0,
+        phaseTimer: 0,
+      });
+    }
   };
 
   const createExplosion = (pos: Vector, color: string, count = 10) => {
@@ -351,7 +542,7 @@ export default function Game() {
     // 2. Update Pathogens
     pathogensRef.current.forEach(p => {
       // Unique Behavior: Parasites track the player
-      if (p.type === 'parasite') {
+      if (p.type === 'parasite' && !p.isBoss) {
         const angle = angleToTarget(p.pos, ship.pos);
         const accel = p.variant === 'stalker' ? 0.12 : 0.05;
         p.vel.x += Math.cos(angle) * accel;
@@ -360,9 +551,111 @@ export default function Game() {
         clampSpeed(p.vel, maxSpeed);
       }
 
+      // Prion: flicker opacity
+      if (p.type === 'prion') {
+        p.opacity = PRION_OPACITY + Math.sin(Date.now() * 0.01 + p.id) * 0.15;
+      }
+
+      // Cancer: grow and spawn copies
+      if (p.type === 'cancer') {
+        if (p.growthRate && p.radius < CANCER_MAX_RADIUS) {
+          p.radius += p.growthRate;
+          p.health = p.radius * CANCER_HEALTH_PER_RADIUS;
+          p.maxHealth = p.health;
+        }
+        if (p.spawnTimer !== undefined) {
+          p.spawnTimer--;
+          if (p.spawnTimer <= 0) {
+            p.spawnTimer = CANCER_SPAWN_INTERVAL;
+            // Spawn a small cancer copy nearby
+            const angle = Math.random() * Math.PI * 2;
+            const dist = p.radius + 20;
+            const hp = CANCER_INITIAL_RADIUS * CANCER_HEALTH_PER_RADIUS * 0.5;
+            pathogensRef.current.push({
+              id: nextIdRef.current++,
+              pos: { x: p.pos.x + Math.cos(angle) * dist, y: p.pos.y + Math.sin(angle) * dist },
+              vel: { x: 0, y: 0 },
+              radius: CANCER_INITIAL_RADIUS * 0.6,
+              rotation: Math.random() * Math.PI * 2,
+              type: 'cancer',
+              health: hp,
+              maxHealth: hp,
+              points: Math.floor(CANCER_POINTS * 0.3),
+              sides: 10,
+              noise: Array.from({ length: 10 }, () => randomRange(0.85, 1.15)),
+              growthRate: CANCER_GROWTH_RATE * 0.5,
+              spawnTimer: CANCER_SPAWN_INTERVAL * 2,
+            });
+          }
+        }
+      }
+
+      // Boss: Mega Virus — shield phase cycling
+      if (p.isBoss && p.bossType === 'mega_virus' && p.phaseTimer !== undefined && p.phase !== undefined) {
+        p.phaseTimer--;
+        if (p.phaseTimer <= 0) {
+          p.phase = p.phase === 0 ? 1 : 0;
+          p.phaseTimer = p.phase === 0 ? MEGA_VIRUS_SHIELD_PHASE_DURATION : MEGA_VIRUS_VULNERABLE_DURATION;
+          if (p.phase === 0) {
+            spawnFloatingText(p.pos, 'SHIELDED', '#60a5fa', 14);
+          } else {
+            spawnFloatingText(p.pos, 'VULNERABLE', '#ef4444', 14);
+          }
+        }
+      }
+
+      // Boss: Parasitic Worm — head tracks player, segments follow
+      if (p.isBoss && p.bossType === 'parasitic_worm') {
+        const angle = angleToTarget(p.pos, ship.pos);
+        p.vel.x += Math.cos(angle) * 0.08;
+        p.vel.y += Math.sin(angle) * 0.08;
+        clampSpeed(p.vel, PARASITIC_WORM_SPEED);
+        if (p.segments && p.segments.length > 0) {
+          p.segments[0] = { ...p.pos };
+          for (let i = 1; i < p.segments.length; i++) {
+            const prev = p.segments[i - 1];
+            const seg = p.segments[i];
+            const dx = prev.x - seg.x;
+            const dy = prev.y - seg.y;
+            const d = Math.sqrt(dx * dx + dy * dy);
+            const spacing = p.radius * 1.6;
+            if (d > spacing) {
+              const ratio = spacing / d;
+              seg.x = prev.x - dx * ratio;
+              seg.y = prev.y - dy * ratio;
+            }
+          }
+        }
+      }
+
+      // Boss: Fungal Bloom — spawn spore clouds periodically
+      if (p.isBoss && p.bossType === 'fungal_bloom' && p.spawnTimer !== undefined) {
+        p.spawnTimer--;
+        if (p.spawnTimer <= 0) {
+          p.spawnTimer = FUNGAL_BLOOM_SPORE_INTERVAL;
+          // Spawn spore (small fungus) in random direction
+          const angle = Math.random() * Math.PI * 2;
+          const dist = p.radius + 30;
+          const sporeHp = 2;
+          pathogensRef.current.push({
+            id: nextIdRef.current++,
+            pos: { x: p.pos.x + Math.cos(angle) * dist, y: p.pos.y + Math.sin(angle) * dist },
+            vel: { x: Math.cos(angle) * 1.5, y: Math.sin(angle) * 1.5 },
+            radius: 12,
+            rotation: Math.random() * Math.PI * 2,
+            type: 'fungus',
+            health: sporeHp,
+            maxHealth: sporeHp,
+            points: 15,
+            sides: 8,
+            noise: Array.from({ length: 8 }, () => randomRange(0.8, 1.2)),
+          });
+        }
+      }
+
       applyVelocity(p);
-      p.rotation += p.type === 'fungus' ? 0.005 : 0.01;
-      wrapPosition(p.pos, canvas.width, canvas.height, p.radius);
+      p.rotation += p.type === 'fungus' ? 0.005 : p.type === 'cancer' ? 0.003 : p.type === 'biofilm' ? 0.002 : 0.01;
+      if (p.type !== 'cancer') wrapPosition(p.pos, canvas.width, canvas.height, p.radius);
 
       // Collision with Ship
       if (circlesCollide(p, ship)) {
@@ -417,11 +710,32 @@ export default function Game() {
           let damage = modifiersRef.current.bulletDamage * (activePowerUpsRef.current.damageBoost > 0 ? 2 : 1);
           let resisted = false;
 
+          // Boss: Mega Virus shield phase — invulnerable when shielded
+          if (p.isBoss && p.bossType === 'mega_virus' && p.phase === 0) {
+            damage = 0;
+            resisted = true;
+            createExplosion(a.pos, '#60a5fa', 3);
+            if (Math.random() > 0.8) spawnFloatingText(p.pos, 'SHIELDED', '#60a5fa', 10);
+          }
+
+          // Biofilm: damage shield first
+          if (p.type === 'biofilm' && p.shieldHealth !== undefined && p.shieldHealth > 0) {
+            p.shieldHealth -= damage;
+            damage = 0;
+            resisted = true;
+            createExplosion(a.pos, '#38bdf8', 4);
+            if (p.shieldHealth <= 0) {
+              p.shieldHealth = 0;
+              spawnFloatingText(p.pos, 'SHIELD BROKEN', '#ef4444', 14);
+              createExplosion(p.pos, '#38bdf8', 20);
+            }
+          }
+
           // Resistance Logic
-          if (p.type === 'fungus') {
+          if (!resisted && p.type === 'fungus') {
             damage = 0.5; // Damage reduction
             resisted = true;
-          } else if (p.type === 'parasite') {
+          } else if (!resisted && p.type === 'parasite' && !p.isBoss) {
             const speed = Math.sqrt(a.vel.x ** 2 + a.vel.y ** 2);
             if (speed > 6) {
               damage = 0.3; // High speed resistance
@@ -431,7 +745,9 @@ export default function Game() {
 
           p.health -= damage;
           
-          if (resisted) {
+          if (resisted && damage === 0) {
+            createExplosion(a.pos, '#ffffff', 3);
+          } else if (resisted) {
             // Visual feedback for resistance (smaller, different color explosion)
             createExplosion(a.pos, '#ffffff', 3);
             if (Math.random() > 0.7) spawnFloatingText(p.pos, 'RESISTED', '#ffffff', 10);
@@ -442,9 +758,15 @@ export default function Game() {
           if (p.health <= 0) {
             setScore(s => s + p.points);
             spawnFloatingText(p.pos, `+${p.points}`, '#ffffff', 20);
-            const killColor = p.type === 'bacteria' ? '#ef4444' : p.type === 'virus' ? '#f59e0b' : p.type === 'parasite' ? '#a855f7' : '#10b981';
-            createExplosion(p.pos, killColor, 15);
-            audioRef.current.playExplosion(p.radius > 35 ? 'large' : p.radius > 20 ? 'medium' : 'small');
+            const killColor = p.type === 'bacteria' ? '#ef4444' : p.type === 'virus' ? '#f59e0b' : p.type === 'parasite' ? '#a855f7' : p.type === 'prion' ? '#94a3b8' : p.type === 'cancer' ? '#f472b6' : p.type === 'biofilm' ? '#38bdf8' : '#10b981';
+            createExplosion(p.pos, killColor, p.isBoss ? 30 : 15);
+            audioRef.current.playExplosion(p.isBoss ? 'large' : p.radius > 35 ? 'large' : p.radius > 20 ? 'medium' : 'small');
+
+            if (p.isBoss) {
+              spawnFloatingText(p.pos, 'BOSS DEFEATED!', '#fbbf24', 28);
+              setShake(25);
+              audioRef.current.playBossDefeat();
+            }
 
             // Track kill
             runKillsRef.current++;
@@ -461,9 +783,30 @@ export default function Game() {
             }
 
             spawnPowerUp(p.pos);
-            // Split
-            spawnPathogen(false, p);
-            spawnPathogen(false, p);
+            // Split (only regular pathogens, not new types or bosses)
+            if (!p.isBoss && p.type !== 'prion' && p.type !== 'cancer' && p.type !== 'biofilm') {
+              spawnPathogen(false, p);
+              spawnPathogen(false, p);
+            }
+            // Bacterial Colony boss: split into individual bacteria on death
+            if (p.isBoss && p.bossType === 'bacterial_colony' && p.segments) {
+              p.segments.forEach(seg => {
+                const segHp = 2;
+                pathogensRef.current.push({
+                  id: nextIdRef.current++,
+                  pos: { ...seg },
+                  vel: { x: randomRange(-2, 2), y: randomRange(-2, 2) },
+                  radius: PATHOGEN_MIN_RADIUS + 5,
+                  rotation: Math.random() * Math.PI * 2,
+                  type: 'bacteria',
+                  health: segHp,
+                  maxHealth: segHp,
+                  points: 30,
+                  sides: 8,
+                  noise: Array.from({ length: 8 }, () => randomRange(0.8, 1.2)),
+                });
+              });
+            }
             pathogensRef.current = pathogensRef.current.filter(path => path.id !== p.id);
           }
         }
@@ -528,10 +871,41 @@ export default function Game() {
 
     // 5. Level Progression
     if (pathogensRef.current.length === 0) {
-      setLevel(l => l + 1);
+      const nextLevel = level + 1;
+      setLevel(nextLevel);
       audioRef.current.playLevelClear();
-      for (let i = 0; i < INITIAL_PATHOGEN_COUNT + level; i++) {
-        spawnPathogen(true);
+
+      // Check if this is a boss level
+      const isBossLevel = (BOSS_LEVELS as readonly number[]).includes(nextLevel);
+
+      if (isBossLevel) {
+        // Boss level: spawn boss + a few regular pathogens
+        spawnBoss(nextLevel);
+        audioRef.current.playBossSpawn();
+        spawnFloatingText(shipRef.current.pos, '⚠ BOSS INCOMING ⚠', '#ef4444', 24);
+        for (let i = 0; i < Math.floor(INITIAL_PATHOGEN_COUNT / 2); i++) {
+          spawnPathogen(true);
+        }
+      } else {
+        // Regular level: spawn standard pathogens + new types based on level
+        for (let i = 0; i < INITIAL_PATHOGEN_COUNT + level; i++) {
+          spawnPathogen(true);
+        }
+
+        // Prion swarms start appearing at level PRION_MIN_LEVEL
+        if (nextLevel >= PRION_MIN_LEVEL && Math.random() < 0.3 + nextLevel * 0.02) {
+          spawnPrionSwarm();
+        }
+
+        // Cancer cells start appearing at level CANCER_MIN_LEVEL
+        if (nextLevel >= CANCER_MIN_LEVEL && Math.random() < 0.2 + nextLevel * 0.02) {
+          spawnCancerCell();
+        }
+
+        // Biofilms start appearing at level BIOFILM_MIN_LEVEL
+        if (nextLevel >= BIOFILM_MIN_LEVEL && Math.random() < 0.15 + nextLevel * 0.02) {
+          spawnBiofilm();
+        }
       }
     }
 
