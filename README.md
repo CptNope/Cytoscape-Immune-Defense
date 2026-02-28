@@ -6,10 +6,12 @@
 A cellular biology themed Asteroids-style arcade game where you pilot a **T-cell** through the bloodstream, defending the host against waves of invading pathogens.
 
 [![Deploy to GitHub Pages](https://github.com/CptNope/Cytoscape-Immune-Defense/actions/workflows/deploy.yml/badge.svg)](https://github.com/CptNope/Cytoscape-Immune-Defense/actions/workflows/deploy.yml)
-![Version](https://img.shields.io/badge/version-1.0.0-emerald)
+![Version](https://img.shields.io/badge/version-1.2.0-emerald)
 ![License](https://img.shields.io/badge/license-Apache--2.0-blue)
 
 **[Play Now](https://cptnope.github.io/Cytoscape-Immune-Defense/)** — Installable as a PWA on any device
+
+[Changelog](CHANGELOG.md) · [Roadmap](ROADMAP.md)
 
 </div>
 
@@ -119,6 +121,8 @@ The dev server runs at `http://localhost:3000`.
 | `npm run dev` | Start dev server on port 3000 |
 | `npm run build` | Production build to `dist/` |
 | `npm run preview` | Preview production build locally |
+| `npm test` | Run unit tests (vitest) |
+| `npm run test:watch` | Run tests in watch mode |
 | `npm run lint` | TypeScript type checking |
 | `npm run generate-icons` | Regenerate all PWA icons from `public/icon.svg` |
 | `npm run clean` | Remove `dist/` directory |
@@ -127,14 +131,17 @@ The dev server runs at `http://localhost:3000`.
 
 To push an update to all installed clients:
 
-1. Bump `version` in `package.json` (e.g., `1.0.0` → `1.1.0`)
-2. Commit and push to `main`
-3. GitHub Actions will auto-deploy; the service worker detects the new version and users see an update prompt
+1. Bump `version` in `package.json` (e.g., `1.1.0` → `1.2.0`)
+2. Add an entry to [`CHANGELOG.md`](CHANGELOG.md)
+3. Commit and push to `main`
+4. GitHub Actions will auto-deploy; the service worker detects the new version and users see an update prompt
 
 ### Project Structure
 
 ```
 ├── .github/workflows/   # GitHub Actions CI/CD
+├── CHANGELOG.md          # Version history
+├── ROADMAP.md            # Planned features & expansion
 ├── public/
 │   ├── icon.svg          # Source SVG icon
 │   ├── icons/            # Generated PNG icons (all sizes)
@@ -147,9 +154,17 @@ To push an update to all installed clients:
 │   ├── App.tsx           # Root component
 │   ├── index.css         # Global styles (Tailwind)
 │   ├── vite-env.d.ts     # Type declarations
-│   └── components/
-│       ├── Game.tsx       # Core game engine (canvas, physics, rendering)
-│       └── PWAUpdatePrompt.tsx  # Service worker update UI
+│   ├── components/
+│   │   ├── Game.tsx       # Game component (React integration layer)
+│   │   └── PWAUpdatePrompt.tsx  # Service worker update UI
+│   └── engine/
+│       ├── types.ts       # All game interfaces (Vector, Entity, Pathogen, etc.)
+│       ├── constants.ts   # Game physics & balance constants
+│       ├── physics.ts     # Pure functions: collision, wrapping, velocity
+│       ├── renderer.ts    # Canvas rendering (extracted draw logic)
+│       ├── scores.ts      # localStorage top scores persistence
+│       ├── index.ts       # Barrel re-exports
+│       └── __tests__/     # Unit tests (vitest)
 ├── index.html            # HTML template with PWA meta tags
 ├── vite.config.ts        # Vite + PWA plugin configuration
 ├── package.json

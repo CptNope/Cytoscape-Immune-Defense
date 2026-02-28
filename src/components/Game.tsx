@@ -6,116 +6,17 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Shield, Zap, Activity, RefreshCw, Play, Trophy } from 'lucide-react';
-
-// --- Constants ---
-
-const SCORES_STORAGE_KEY = 'cytoscape-top-scores';
-const MAX_TOP_SCORES = 10;
-
-// --- Types ---
-
-interface ScoreEntry {
-  score: number;
-  level: number;
-  date: string;
-}
-
-interface Vector {
-  x: number;
-  y: number;
-}
-
-interface Entity {
-  pos: Vector;
-  vel: Vector;
-  radius: number;
-  rotation: number;
-}
-
-interface Pathogen extends Entity {
-  id: number;
-  type: 'virus' | 'bacteria' | 'parasite' | 'fungus';
-  variant?: 'armored' | 'swift' | 'stalker';
-  health: number;
-  points: number;
-  sides: number;
-  noise: number[];
-}
-
-interface Antibody extends Entity {
-  id: number;
-  life: number;
-}
-
-interface Particle extends Entity {
-  id: number;
-  life: number;
-  color: string;
-  opacity: number;
-}
-
-interface PowerUp extends Entity {
-  id: number;
-  type: 'rapid_fire' | 'shield' | 'damage_boost' | 'bomb';
-  life: number;
-}
-
-interface FloatingText {
-  id: number;
-  pos: Vector;
-  vel: Vector;
-  text: string;
-  color: string;
-  life: number;
-  size: number;
-}
-
-// --- Game Constants ---
-
-const FPS = 60;
-const FRICTION = 0.98;
-const SHIP_THRUST = 0.15;
-const SHIP_TURN_SPEED = 0.08;
-const BULLET_SPEED = 7;
-const BULLET_LIFE = 60;
-const PATHOGEN_MIN_RADIUS = 15;
-const PATHOGEN_MAX_RADIUS = 50;
-const INITIAL_PATHOGEN_COUNT = 5;
-
-// --- Score Persistence ---
-
-const loadTopScores = (): ScoreEntry[] => {
-  try {
-    const raw = localStorage.getItem(SCORES_STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.slice(0, MAX_TOP_SCORES);
-  } catch {
-    return [];
-  }
-};
-
-const saveTopScore = (entry: ScoreEntry): ScoreEntry[] => {
-  const scores = loadTopScores();
-  scores.push(entry);
-  scores.sort((a, b) => b.score - a.score);
-  const top = scores.slice(0, MAX_TOP_SCORES);
-  try {
-    localStorage.setItem(SCORES_STORAGE_KEY, JSON.stringify(top));
-  } catch {
-    // localStorage full or unavailable — silently fail
-  }
-  return top;
-};
-
-// --- Helper Functions ---
-
-const randomRange = (min: number, max: number) => Math.random() * (max - min) + min;
-
-const distance = (v1: Vector, v2: Vector) => {
-  return Math.sqrt(Math.pow(v2.x - v1.x, 2) + Math.pow(v2.y - v1.y, 2));
-};
+import {
+  type Vector, type Pathogen, type Antibody, type Particle, type PowerUp,
+  type FloatingText, type ScoreEntry, type Ship, type ActivePowerUps, type VirtualControls,
+  FRICTION, SHIP_THRUST, SHIP_TURN_SPEED, BULLET_SPEED, BULLET_LIFE,
+  PATHOGEN_MIN_RADIUS, PATHOGEN_MAX_RADIUS, INITIAL_PATHOGEN_COUNT, MAX_PARTICLES,
+  POWERUP_DURATION, POWERUP_DROP_RATE, POWERUP_LIFETIME,
+  randomRange, distance, circlesCollide, wrapPosition, applyVelocity, applyFriction,
+  angleToTarget, speed, clampSpeed,
+  loadTopScores, saveTopScore,
+  render,
+} from '../engine';
 
 export default function Game() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -131,7 +32,7 @@ export default function Game() {
   const [isMobile, setIsMobile] = useState(false);
 
   // Game Refs (to avoid re-renders during loop)
-  const shipRef = useRef<Entity & { thrusting: boolean; turning: number; lastShot: number }>({
+  const shipRef = useRef<Ship>({
     pos: { x: 0, y: 0 },
     vel: { x: 0, y: 0 },
     radius: 18,
@@ -147,7 +48,7 @@ export default function Game() {
   const powerUpsRef = useRef<PowerUp[]>([]);
   const floatingTextsRef = useRef<FloatingText[]>([]);
   const keysRef = useRef<Record<string, boolean>>({});
-  const virtualControlsRef = useRef({
+  const virtualControlsRef = useRef<VirtualControls>({
     joystickActive: false,
     joystickAngle: 0,
     joystickDistance: 0,
@@ -156,7 +57,7 @@ export default function Game() {
   const nextIdRef = useRef(0);
   const requestRef = useRef<number>(null);
 
-  const activePowerUpsRef = useRef({
+  const activePowerUpsRef = useRef<ActivePowerUps>({
     rapidFire: 0,
     shield: 0,
     damageBoost: 0
@@ -271,7 +172,7 @@ export default function Game() {
   };
 
   const spawnPowerUp = (pos: Vector) => {
-    if (Math.random() > 0.15) return; // 15% drop rate
+    if (Math.random() > POWERUP_DROP_RATE) return;
 
     const types: PowerUp['type'][] = ['rapid_fire', 'shield', 'damage_boost', 'bomb'];
     const type = types[Math.floor(Math.random() * types.length)];
@@ -286,7 +187,7 @@ export default function Game() {
       radius: 12,
       rotation: 0,
       type,
-      life: 600 // 10 seconds at 60fps
+      life: POWERUP_LIFETIME
     });
   };
 
@@ -355,8 +256,8 @@ export default function Game() {
     ship.thrusting = isThrusting;
 
     if (isThrusting) {
-      // Thrust particles
-      if (Math.random() > 0.5) {
+      // Thrust particles (capped)
+      if (Math.random() > 0.5 && particlesRef.current.length < MAX_PARTICLES) {
         particlesRef.current.push({
           id: nextIdRef.current++,
           pos: {
@@ -376,21 +277,15 @@ export default function Game() {
       }
     }
 
-    ship.pos.x += ship.vel.x;
-    ship.pos.y += ship.vel.y;
-    ship.vel.x *= FRICTION;
-    ship.vel.y *= FRICTION;
-
-    // Wrap Ship
-    if (ship.pos.x < 0) ship.pos.x = canvas.width;
-    if (ship.pos.x > canvas.width) ship.pos.x = 0;
-    if (ship.pos.y < 0) ship.pos.y = canvas.height;
-    if (ship.pos.y > canvas.height) ship.pos.y = 0;
+    applyVelocity(ship);
+    applyFriction(ship, FRICTION);
+    wrapPosition(ship.pos, canvas.width, canvas.height);
 
     // Update Power-up timers
-    if (activePowerUpsRef.current.rapidFire > 0) activePowerUpsRef.current.rapidFire--;
-    if (activePowerUpsRef.current.shield > 0) activePowerUpsRef.current.shield--;
-    if (activePowerUpsRef.current.damageBoost > 0) activePowerUpsRef.current.damageBoost--;
+    const ap = activePowerUpsRef.current;
+    if (ap.rapidFire > 0) ap.rapidFire--;
+    if (ap.shield > 0) ap.shield--;
+    if (ap.damageBoost > 0) ap.damageBoost--;
 
     // Shooting
     const shotDelay = activePowerUpsRef.current.rapidFire > 0 ? 80 : 200;
@@ -416,32 +311,20 @@ export default function Game() {
     pathogensRef.current.forEach(p => {
       // Unique Behavior: Parasites track the player
       if (p.type === 'parasite') {
-        const angleToShip = Math.atan2(ship.pos.y - p.pos.y, ship.pos.x - p.pos.x);
+        const angle = angleToTarget(p.pos, ship.pos);
         const accel = p.variant === 'stalker' ? 0.12 : 0.05;
-        p.vel.x += Math.cos(angleToShip) * accel;
-        p.vel.y += Math.sin(angleToShip) * accel;
-        
-        // Cap speed
-        const speed = Math.sqrt(p.vel.x ** 2 + p.vel.y ** 2);
+        p.vel.x += Math.cos(angle) * accel;
+        p.vel.y += Math.sin(angle) * accel;
         const maxSpeed = (3 + level * 0.2) * (p.variant === 'stalker' ? 1.4 : 1);
-        if (speed > maxSpeed) {
-          p.vel.x = (p.vel.x / speed) * maxSpeed;
-          p.vel.y = (p.vel.y / speed) * maxSpeed;
-        }
+        clampSpeed(p.vel, maxSpeed);
       }
 
-      p.pos.x += p.vel.x;
-      p.pos.y += p.vel.y;
+      applyVelocity(p);
       p.rotation += p.type === 'fungus' ? 0.005 : 0.01;
-
-      // Wrap
-      if (p.pos.x < -p.radius) p.pos.x = canvas.width + p.radius;
-      if (p.pos.x > canvas.width + p.radius) p.pos.x = -p.radius;
-      if (p.pos.y < -p.radius) p.pos.y = canvas.height + p.radius;
-      if (p.pos.y > canvas.height + p.radius) p.pos.y = -p.radius;
+      wrapPosition(p.pos, canvas.width, canvas.height, p.radius);
 
       // Collision with Ship
-      if (distance(p.pos, ship.pos) < p.radius + ship.radius) {
+      if (circlesCollide(p, ship)) {
         if (activePowerUpsRef.current.shield > 0) {
           setShake(5);
           // Bounce pathogen
@@ -472,15 +355,9 @@ export default function Game() {
 
     // 3. Update Antibodies
     antibodiesRef.current = antibodiesRef.current.filter(a => {
-      a.pos.x += a.vel.x;
-      a.pos.y += a.vel.y;
+      applyVelocity(a);
       a.life--;
-
-      // Wrap
-      if (a.pos.x < 0) a.pos.x = canvas.width;
-      if (a.pos.x > canvas.width) a.pos.x = 0;
-      if (a.pos.y < 0) a.pos.y = canvas.height;
-      if (a.pos.y > canvas.height) a.pos.y = 0;
+      wrapPosition(a.pos, canvas.width, canvas.height);
 
       // Collision with Pathogens
       let hit = false;
@@ -531,28 +408,22 @@ export default function Game() {
 
     // 4. Update Power-ups
     powerUpsRef.current = powerUpsRef.current.filter(p => {
-      p.pos.x += p.vel.x;
-      p.pos.y += p.vel.y;
+      applyVelocity(p);
       p.life--;
-
-      // Wrap
-      if (p.pos.x < 0) p.pos.x = canvas.width;
-      if (p.pos.x > canvas.width) p.pos.x = 0;
-      if (p.pos.y < 0) p.pos.y = canvas.height;
-      if (p.pos.y > canvas.height) p.pos.y = 0;
+      wrapPosition(p.pos, canvas.width, canvas.height);
 
       // Collision with Ship
-      if (distance(p.pos, ship.pos) < p.radius + ship.radius) {
+      if (circlesCollide(p, ship)) {
         if (p.type === 'rapid_fire') {
-          activePowerUpsRef.current.rapidFire = 300;
+          activePowerUpsRef.current.rapidFire = POWERUP_DURATION;
           spawnFloatingText(p.pos, 'RAPID FIRE', '#60a5fa');
         }
         if (p.type === 'shield') {
-          activePowerUpsRef.current.shield = 300;
+          activePowerUpsRef.current.shield = POWERUP_DURATION;
           spawnFloatingText(p.pos, 'SHIELD ACTIVE', '#a855f7');
         }
         if (p.type === 'damage_boost') {
-          activePowerUpsRef.current.damageBoost = 300;
+          activePowerUpsRef.current.damageBoost = POWERUP_DURATION;
           spawnFloatingText(p.pos, 'DAMAGE BOOST', '#fbbf24');
         }
         if (p.type === 'bomb') {
@@ -569,20 +440,21 @@ export default function Game() {
 
     // 5. Update Floating Texts
     floatingTextsRef.current = floatingTextsRef.current.filter(t => {
-      t.pos.x += t.vel.x;
-      t.pos.y += t.vel.y;
+      applyVelocity(t);
       t.life--;
       return t.life > 0;
     });
 
-    // 6. Update Particles
+    // 6. Update Particles (with cap enforcement)
     particlesRef.current = particlesRef.current.filter(p => {
-      p.pos.x += p.vel.x;
-      p.pos.y += p.vel.y;
+      applyVelocity(p);
       p.life--;
       p.opacity = p.life / 40;
       return p.life > 0;
     });
+    if (particlesRef.current.length > MAX_PARTICLES) {
+      particlesRef.current = particlesRef.current.slice(-MAX_PARTICLES);
+    }
 
     // 5. Level Progression
     if (pathogensRef.current.length === 0) {
@@ -603,273 +475,18 @@ export default function Game() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Clear
-    ctx.fillStyle = '#0a0505';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    // Apply Shake
-    ctx.save();
-    if (shake > 0) {
-      ctx.translate(randomRange(-shake, shake), randomRange(-shake, shake));
-    }
-
-    if (flash > 0) {
-      ctx.fillStyle = `rgba(255, 0, 0, ${flash * 0.1})`;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-    }
-
-    // Draw Background Depth (floating RBCs)
-    ctx.save();
-    ctx.globalAlpha = 0.1;
-    ctx.fillStyle = '#450a0a';
-    for (let i = 0; i < 15; i++) {
-        ctx.beginPath();
-        const t = Date.now() * 0.0003;
-        const x = ((Math.sin(t + i * 2) * 0.5 + 0.5) * canvas.width + i * 50) % canvas.width;
-        const y = ((Math.cos(t * 0.5 + i) * 0.5 + 0.5) * canvas.height + i * 30) % canvas.height;
-        ctx.arc(x, y, 30 + (i % 5) * 10, 0, Math.PI * 2);
-        ctx.fill();
-    }
-    ctx.restore();
-
-    // Draw Particles
-    particlesRef.current.forEach(p => {
-      ctx.save();
-      ctx.globalAlpha = p.opacity;
-      ctx.fillStyle = p.color;
-      ctx.beginPath();
-      ctx.arc(p.pos.x, p.pos.y, p.radius, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
+    render(ctx, canvas, {
+      ship: shipRef.current,
+      pathogens: pathogensRef.current,
+      antibodies: antibodiesRef.current,
+      particles: particlesRef.current,
+      powerUps: powerUpsRef.current,
+      floatingTexts: floatingTextsRef.current,
+      activePowerUps: activePowerUpsRef.current,
+      shake,
+      flash,
+      gameState,
     });
-
-    // Draw Power-ups
-    powerUpsRef.current.forEach(p => {
-      ctx.save();
-      ctx.translate(p.pos.x, p.pos.y);
-      ctx.rotate(Date.now() * 0.002);
-      
-      let color = '#ffffff';
-      if (p.type === 'rapid_fire') color = '#60a5fa';
-      if (p.type === 'shield') color = '#a855f7';
-      if (p.type === 'damage_boost') color = '#fbbf24';
-      if (p.type === 'bomb') color = '#ef4444';
-
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.rect(-8, -8, 16, 16);
-      ctx.stroke();
-      
-      // Icon
-      ctx.font = '12px Arial';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillStyle = color;
-      const icon = p.type === 'rapid_fire' ? '⚡' : p.type === 'shield' ? '🛡️' : p.type === 'damage_boost' ? '🔥' : '💣';
-      ctx.fillText(icon, 0, 0);
-
-      ctx.restore();
-    });
-
-    // Draw Floating Texts
-    floatingTextsRef.current.forEach(t => {
-      ctx.save();
-      ctx.globalAlpha = t.life / 60;
-      ctx.fillStyle = t.color;
-      ctx.font = `bold ${t.size}px 'JetBrains Mono'`;
-      ctx.textAlign = 'center';
-      ctx.fillText(t.text, t.pos.x, t.pos.y);
-      ctx.restore();
-    });
-
-    // Draw Antibodies
-    antibodiesRef.current.forEach(a => {
-      ctx.save();
-      ctx.translate(a.pos.x, a.pos.y);
-      ctx.rotate(a.rotation);
-      ctx.strokeStyle = '#4ade80';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(-4, 0);
-      ctx.lineTo(4, 0);
-      ctx.moveTo(0, -2);
-      ctx.lineTo(0, 2);
-      ctx.stroke();
-      ctx.restore();
-    });
-
-    // Draw Pathogens
-    pathogensRef.current.forEach(p => {
-      ctx.save();
-      ctx.translate(p.pos.x, p.pos.y);
-      ctx.rotate(p.rotation);
-      
-      let color = '#ef4444'; // bacteria
-      if (p.type === 'virus') color = '#f59e0b';
-      if (p.type === 'parasite') color = '#a855f7'; // purple
-      if (p.type === 'fungus') color = '#10b981'; // emerald
-
-      if (p.variant === 'swift') color = '#38bdf8'; // sky blue for swift
-      if (p.variant === 'stalker') color = '#ec4899'; // pink for stalker
-
-      ctx.strokeStyle = color;
-      ctx.shadowColor = color;
-      ctx.shadowBlur = p.variant ? 20 : 10;
-      ctx.fillStyle = `${color}1a`; // 10% opacity
-      ctx.lineWidth = p.variant === 'armored' ? 4 : 2;
-      
-      if (p.type === 'parasite') {
-        // Parasite: Elliptical with flagella
-        ctx.beginPath();
-        ctx.ellipse(0, 0, p.radius, p.radius * 0.6, 0, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.fill();
-        
-        // Flagella
-        const flagellaCount = p.variant === 'stalker' ? 3 : 1;
-        for (let j = 0; j < flagellaCount; j++) {
-          ctx.save();
-          ctx.rotate((j - (flagellaCount - 1) / 2) * 0.3);
-          ctx.beginPath();
-          ctx.moveTo(-p.radius, 0);
-          const offset = Math.sin(Date.now() * 0.01 + j) * 10;
-          ctx.bezierCurveTo(-p.radius - 20, -10 + offset, -p.radius - 10, 10 + offset, -p.radius - (p.variant === 'stalker' ? 50 : 30), offset);
-          ctx.stroke();
-          ctx.restore();
-        }
-      } else if (p.type === 'fungus') {
-        // Fungus: Spiky/Branching
-        ctx.beginPath();
-        for (let i = 0; i < p.sides; i++) {
-          const angle = (i / p.sides) * Math.PI * 2;
-          const r = p.radius * p.noise[i];
-          const x = Math.cos(angle) * r;
-          const y = Math.sin(angle) * r;
-          if (i === 0) ctx.moveTo(x, y);
-          else ctx.lineTo(x, y);
-          
-          // Add "spores" or branches
-          const bx = Math.cos(angle) * (r + 10);
-          const by = Math.sin(angle) * (r + 10);
-          ctx.moveTo(x, y);
-          ctx.lineTo(bx, by);
-          ctx.arc(bx, by, 2, 0, Math.PI * 2);
-        }
-        ctx.closePath();
-        ctx.stroke();
-        ctx.fill();
-      } else {
-        // Standard Virus/Bacteria
-        ctx.beginPath();
-        for (let i = 0; i < p.sides; i++) {
-          const angle = (i / p.sides) * Math.PI * 2;
-          const r = p.radius * p.noise[i];
-          const x = Math.cos(angle) * r;
-          const y = Math.sin(angle) * r;
-          if (i === 0) ctx.moveTo(x, y);
-          else ctx.lineTo(x, y);
-        }
-        ctx.closePath();
-        ctx.stroke();
-        ctx.fill();
-
-        if (p.variant === 'armored') {
-          ctx.beginPath();
-          for (let i = 0; i < p.sides; i++) {
-            const angle = (i / p.sides) * Math.PI * 2;
-            const r = (p.radius - 8) * p.noise[i];
-            const x = Math.cos(angle) * r;
-            const y = Math.sin(angle) * r;
-            if (i === 0) ctx.moveTo(x, y);
-            else ctx.lineTo(x, y);
-          }
-          ctx.closePath();
-          ctx.stroke();
-        }
-      }
-
-      // Add some "internal" details
-      ctx.beginPath();
-      ctx.arc(0, 0, p.radius * 0.3, 0, Math.PI * 2);
-      ctx.stroke();
-
-      ctx.restore();
-    });
-
-    // Draw Ship (T-Cell)
-    if (gameState === 'playing') {
-      const ship = shipRef.current;
-      ctx.save();
-      ctx.translate(ship.pos.x, ship.pos.y);
-      ctx.rotate(ship.rotation);
-
-      // Main Body
-      ctx.strokeStyle = '#ffffff';
-      ctx.shadowColor = '#ffffff';
-      ctx.shadowBlur = 15;
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(0, 0, ship.radius, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.fill();
-
-      // Nucleus
-      ctx.beginPath();
-      ctx.arc(-2, 0, ship.radius * 0.4, 0, Math.PI * 2);
-      ctx.stroke();
-
-      // Receptors (Villi)
-      for (let i = 0; i < 8; i++) {
-        const angle = (i / 8) * Math.PI * 2;
-        const x1 = Math.cos(angle) * ship.radius;
-        const y1 = Math.sin(angle) * ship.radius;
-        const x2 = Math.cos(angle) * (ship.radius + 5);
-        const y2 = Math.sin(angle) * (ship.radius + 5);
-        ctx.beginPath();
-        ctx.moveTo(x1, y1);
-        ctx.lineTo(x2, y2);
-        ctx.stroke();
-      }
-
-      // Shield effect
-      if (activePowerUpsRef.current.shield > 0) {
-        ctx.strokeStyle = '#a855f7';
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.arc(0, 0, ship.radius + 10, 0, Math.PI * 2);
-        ctx.stroke();
-        
-        ctx.globalAlpha = 0.2;
-        ctx.fillStyle = '#a855f7';
-        ctx.fill();
-        ctx.globalAlpha = 1.0;
-      }
-
-      // Damage boost effect
-      if (activePowerUpsRef.current.damageBoost > 0) {
-        ctx.strokeStyle = '#fbbf24';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(0, 0, ship.radius + 5, 0, Math.PI * 2);
-        ctx.stroke();
-      }
-
-      // Thrust flame
-      if (ship.thrusting) {
-        ctx.strokeStyle = '#60a5fa';
-        ctx.beginPath();
-        ctx.moveTo(-ship.radius, -5);
-        ctx.lineTo(-ship.radius - 15, 0);
-        ctx.lineTo(-ship.radius, 5);
-        ctx.stroke();
-      }
-
-      ctx.restore();
-    }
-
-    ctx.restore(); // End Shake
   };
 
   const loop = () => {
@@ -1038,6 +655,7 @@ export default function Game() {
             {/* Large Fire Button (Right) */}
             <div className="absolute bottom-16 right-16 pointer-events-auto">
               <button
+                aria-label="Fire antibodies"
                 onPointerDown={() => { virtualControlsRef.current.fire = true; }}
                 onPointerUp={() => { virtualControlsRef.current.fire = false; }}
                 onPointerLeave={() => { virtualControlsRef.current.fire = false; }}
@@ -1049,6 +667,7 @@ export default function Game() {
 
             {/* Pause Button for Mobile */}
             <button
+              aria-label="Pause game"
               onClick={() => setIsPaused(true)}
               className="absolute top-6 right-24 p-3 bg-white/10 backdrop-blur-md border border-white/20 rounded-xl pointer-events-auto active:bg-white/30"
             >

@@ -76,10 +76,10 @@ This document outlines planned features and expansion ideas for the game, organi
 
 ## Technical Debt & Maintenance
 
-- [ ] Extract game engine into separate module (decouple from React component)
-- [ ] Add unit tests for physics and collision detection
+- [x] Extract game engine into separate module (decouple from React component)
+- [x] Add unit tests for physics and collision detection
 - [ ] Add E2E tests with Playwright
-- [ ] Performance profiling — optimize particle system for low-end devices
+- [x] Performance profiling — optimize particle system for low-end devices (capped at 200)
 - [ ] Bundle size optimization — lazy load non-critical assets
 - [ ] Migrate to Web Workers for game loop (keep UI thread free)
 
