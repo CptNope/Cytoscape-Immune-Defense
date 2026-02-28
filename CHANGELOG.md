@@ -5,6 +5,14 @@ All notable changes to Cytoscape: Immune Defense will be documented in this file
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.1] - 2026-02-28
+
+### Fixed
+- **Mobile controls too low in portrait** — joystick and fire button moved higher (`bottom-16` / `bottom-24` at sm) so they're not cut off at the bottom edge
+- **Ship movement too wild** — reduced thrust from `0.15` to `0.10` and increased friction from `0.98` to `0.97` for smoother, more controllable movement
+- **Enemies too large on small screens** — pathogen radius now scales down based on screen size (`minDim / 600` factor), so enemies fit better on phones
+- **Fire button stays engaged after retry** — `virtualControlsRef` (fire, joystick) is now fully reset in `initGame()` so auto-firing doesn't carry over between matches
+
 ## [1.8.0] - 2026-02-28
 
 ### Fixed

@@ -145,6 +145,11 @@ export default function Game() {
     setFlash(0);
     setIsPaused(false);
 
+    // Reset virtual controls so fire doesn't persist across matches
+    virtualControlsRef.current.fire = false;
+    virtualControlsRef.current.joystickActive = false;
+    virtualControlsRef.current.joystickDistance = 0;
+
     // Reset run tracking
     runKillsRef.current = 0;
     runKillsByTypeRef.current = {};
@@ -173,8 +178,12 @@ export default function Game() {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const radius = parent ? parent.radius / 2 : randomRange(PATHOGEN_MIN_RADIUS + 10, PATHOGEN_MAX_RADIUS);
-    if (radius < PATHOGEN_MIN_RADIUS) return;
+    // Scale enemies smaller on small screens
+    const minDim = Math.min(canvas.width, canvas.height);
+    const sizeScale = Math.min(1, minDim / 600); // 1.0 at 600px+, shrinks below
+    const rawRadius = parent ? parent.radius / 2 : randomRange(PATHOGEN_MIN_RADIUS + 10, PATHOGEN_MAX_RADIUS);
+    const radius = Math.max(PATHOGEN_MIN_RADIUS * 0.7, rawRadius * sizeScale);
+    if (radius < PATHOGEN_MIN_RADIUS * 0.6) return;
 
     let pos: Vector;
     if (parent) {
@@ -1332,7 +1341,7 @@ export default function Game() {
             className="absolute inset-0 pointer-events-none z-20"
           >
             {/* Virtual Joystick (Left) */}
-            <div className="absolute bottom-8 left-4 sm:bottom-16 sm:left-16 w-24 h-24 sm:w-32 sm:h-32 bg-white/5 backdrop-blur-sm border border-white/10 rounded-full pointer-events-auto touch-none"
+            <div className="absolute bottom-16 left-4 sm:bottom-24 sm:left-16 w-24 h-24 sm:w-32 sm:h-32 bg-white/5 backdrop-blur-sm border border-white/10 rounded-full pointer-events-auto touch-none"
               onPointerDown={(e) => {
                 const rect = e.currentTarget.getBoundingClientRect();
                 const centerX = rect.left + rect.width / 2;
@@ -1374,7 +1383,7 @@ export default function Game() {
             </div>
 
             {/* Large Fire Button (Right) */}
-            <div className="absolute bottom-8 right-4 sm:bottom-16 sm:right-16 pointer-events-auto">
+            <div className="absolute bottom-16 right-4 sm:bottom-24 sm:right-16 pointer-events-auto">
               <button
                 aria-label="Fire antibodies"
                 onPointerDown={() => { virtualControlsRef.current.fire = true; }}

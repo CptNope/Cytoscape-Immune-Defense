@@ -6,8 +6,8 @@
 import type { UpgradeDef, CytokineDef } from './types';
 
 export const FPS = 60;
-export const FRICTION = 0.98;
-export const SHIP_THRUST = 0.15;
+export const FRICTION = 0.97;
+export const SHIP_THRUST = 0.10;
 export const SHIP_TURN_SPEED = 0.08;
 export const BULLET_SPEED = 7;
 export const BULLET_LIFE = 60;
