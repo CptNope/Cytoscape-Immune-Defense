@@ -15,6 +15,7 @@ export interface RenderState {
   floatingTexts: FloatingText[];
   activePowerUps: ActivePowerUps;
   shake: number;
+  shakeAngle?: number;
   flash: number;
   gameState: 'menu' | 'playing' | 'gameover';
 }
@@ -24,16 +25,22 @@ export function render(
   canvas: HTMLCanvasElement,
   state: RenderState
 ): void {
-  const { ship, pathogens, antibodies, particles, powerUps, floatingTexts, activePowerUps, shake, flash, gameState } = state;
+  const { ship, pathogens, antibodies, particles, powerUps, floatingTexts, activePowerUps, shake, shakeAngle, flash, gameState } = state;
 
   // Clear
   ctx.fillStyle = '#0a0505';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // Apply Shake
+  // Apply Shake (with directional bias)
   ctx.save();
   if (shake > 0) {
-    ctx.translate(randomRange(-shake, shake), randomRange(-shake, shake));
+    const angle = shakeAngle ?? Math.random() * Math.PI * 2;
+    const biasX = Math.cos(angle) * shake * 0.6;
+    const biasY = Math.sin(angle) * shake * 0.6;
+    ctx.translate(
+      biasX + randomRange(-shake * 0.4, shake * 0.4),
+      biasY + randomRange(-shake * 0.4, shake * 0.4)
+    );
   }
 
   if (flash > 0) {

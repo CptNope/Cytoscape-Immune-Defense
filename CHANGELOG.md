@@ -5,6 +5,32 @@ All notable changes to Cytoscape: Immune Defense will be documented in this file
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-02-27
+
+### Added
+- **Procedural audio engine** (`src/engine/audio.ts`) — all sounds synthesized via Web Audio API, no audio files needed
+  - Fire sound (laser chirp)
+  - Explosions (noise burst with low-pass filter, 3 sizes: small/medium/large)
+  - Power-up pickup (ascending C-major chime)
+  - Damage hit (harsh sawtooth buzz)
+  - Shield bounce (metallic ping)
+  - Level clear (triumphant ascending arpeggio)
+  - Bomb / system purge (deep rumble + high sweep)
+  - Game over (descending ominous tone)
+  - Continuous thrust hum (sawtooth drone with fade in/out)
+- **Generative ambient background music** — layered sine-wave drones with LFO modulation
+- **Volume controls UI** (`AudioControls.tsx`) — mute toggle, SFX volume slider, music volume slider
+- Audio settings persisted to localStorage (`cytoscape-audio-settings`)
+- **Haptic feedback** on mobile via Vibration API — distinct patterns for fire, damage, power-ups, and bombs
+- Directional screen shake — shake now biases toward the direction of impact instead of random jitter
+
+### Changed
+- `RenderState` now accepts optional `shakeAngle` for directional shake
+- Renderer shake calculation uses 60% directional bias + 40% random for organic feel
+- Audio initializes on first user gesture (play button) to comply with browser autoplay policies
+- Music starts on game start, stops on game over
+- Thrust sound automatically starts/stops based on ship movement
+
 ## [1.2.0] - 2026-02-27
 
 ### Added

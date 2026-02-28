@@ -16,7 +16,9 @@ import {
   angleToTarget, speed, clampSpeed,
   loadTopScores, saveTopScore,
   render,
+  AudioEngine, haptic, HAPTIC_DAMAGE, HAPTIC_POWERUP, HAPTIC_BOMB, HAPTIC_FIRE,
 } from '../engine';
+import AudioControls from './AudioControls';
 
 export default function Game() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -30,6 +32,11 @@ export default function Game() {
   const [isPaused, setIsPaused] = useState(false);
   const [flash, setFlash] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
+
+  // Audio engine (initialized on first user gesture)
+  const audioRef = useRef(new AudioEngine());
+  const shakeAngleRef = useRef(0);
+  const prevThrustingRef = useRef(false);
 
   // Game Refs (to avoid re-renders during loop)
   const shipRef = useRef<Ship>({
@@ -255,6 +262,11 @@ export default function Game() {
 
     ship.thrusting = isThrusting;
 
+    // Thrust sound start/stop
+    if (isThrusting && !prevThrustingRef.current) audioRef.current.startThrust();
+    if (!isThrusting && prevThrustingRef.current) audioRef.current.stopThrust();
+    prevThrustingRef.current = isThrusting;
+
     if (isThrusting) {
       // Thrust particles (capped)
       if (Math.random() > 0.5 && particlesRef.current.length < MAX_PARTICLES) {
@@ -305,6 +317,8 @@ export default function Game() {
         life: BULLET_LIFE
       });
       ship.lastShot = Date.now();
+      audioRef.current.playFire();
+      haptic(HAPTIC_FIRE);
     }
 
     // 2. Update Pathogens
@@ -327,6 +341,8 @@ export default function Game() {
       if (circlesCollide(p, ship)) {
         if (activePowerUpsRef.current.shield > 0) {
           setShake(5);
+          shakeAngleRef.current = Math.atan2(p.pos.y - ship.pos.y, p.pos.x - ship.pos.x);
+          audioRef.current.playShieldBounce();
           // Bounce pathogen
           const angle = Math.atan2(p.pos.y - ship.pos.y, p.pos.x - ship.pos.x);
           p.vel.x = Math.cos(angle) * 5;
@@ -337,11 +353,17 @@ export default function Game() {
             if (next <= 0) {
               setGameState('gameover');
               createExplosion(ship.pos, '#ffffff', 30);
+              audioRef.current.playGameOver();
+              audioRef.current.stopThrust();
+              audioRef.current.stopMusic();
             }
             return Math.max(0, next);
           });
           setShake(10);
           setFlash(5);
+          shakeAngleRef.current = Math.atan2(ship.pos.y - p.pos.y, ship.pos.x - p.pos.x);
+          audioRef.current.playDamage();
+          haptic(HAPTIC_DAMAGE);
           // Push away
           const angle = Math.atan2(ship.pos.y - p.pos.y, ship.pos.x - p.pos.x);
           ship.vel.x += Math.cos(angle) * 5;
@@ -394,6 +416,7 @@ export default function Game() {
             setScore(s => s + p.points);
             spawnFloatingText(p.pos, `+${p.points}`, '#ffffff', 20);
             createExplosion(p.pos, p.type === 'bacteria' ? '#ef4444' : p.type === 'virus' ? '#f59e0b' : p.type === 'parasite' ? '#a855f7' : '#10b981', 15);
+            audioRef.current.playExplosion(p.radius > 35 ? 'large' : p.radius > 20 ? 'medium' : 'small');
             spawnPowerUp(p.pos);
             // Split
             spawnPathogen(false, p);
@@ -429,8 +452,12 @@ export default function Game() {
         if (p.type === 'bomb') {
           triggerBomb();
           spawnFloatingText(p.pos, 'SYSTEM PURGE', '#ef4444');
+          audioRef.current.playBomb();
+          haptic(HAPTIC_BOMB);
         }
         
+        if (p.type !== 'bomb') audioRef.current.playPowerUp();
+        haptic(HAPTIC_POWERUP);
         createExplosion(p.pos, '#ffffff', 10);
         return false;
       }
@@ -459,6 +486,7 @@ export default function Game() {
     // 5. Level Progression
     if (pathogensRef.current.length === 0) {
       setLevel(l => l + 1);
+      audioRef.current.playLevelClear();
       for (let i = 0; i < INITIAL_PATHOGEN_COUNT + level; i++) {
         spawnPathogen(true);
       }
@@ -484,6 +512,7 @@ export default function Game() {
       floatingTexts: floatingTextsRef.current,
       activePowerUps: activePowerUpsRef.current,
       shake,
+      shakeAngle: shakeAngleRef.current,
       flash,
       gameState,
     });
@@ -532,6 +561,11 @@ export default function Game() {
     };
   }, [gameState, level]);
 
+  // Cleanup audio on unmount
+  useEffect(() => {
+    return () => { audioRef.current.dispose(); };
+  }, []);
+
   useEffect(() => {
     setTopScores(loadTopScores());
   }, []);
@@ -552,8 +586,10 @@ export default function Game() {
 
   const startGame = () => {
     setLastScoreRank(null);
+    audioRef.current.init();
     initGame();
     setGameState('playing');
+    audioRef.current.startMusic();
   };
 
   return (
@@ -563,6 +599,9 @@ export default function Game() {
         className="absolute inset-0 block"
         id="game-canvas"
       />
+
+      {/* Audio Controls */}
+      {gameState === 'playing' && <AudioControls audio={audioRef.current} />}
 
       {/* HUD */}
       <AnimatePresence>

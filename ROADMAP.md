@@ -6,11 +6,11 @@ This document outlines planned features and expansion ideas for the game, organi
 
 ## v1.2 — Audio & Feedback
 
-- [ ] Sound effects — thrust, fire, explosions, power-up pickup, damage hit, level clear
-- [ ] Background music — ambient biological/electronic soundtrack
-- [ ] Volume controls and mute toggle (persisted to localStorage)
-- [ ] Haptic feedback on mobile (vibration API) for damage and power-ups
-- [ ] Improved screen shake with directional bias
+- [x] Sound effects — thrust, fire, explosions, power-up pickup, damage hit, level clear
+- [x] Background music — ambient biological/electronic soundtrack
+- [x] Volume controls and mute toggle (persisted to localStorage)
+- [x] Haptic feedback on mobile (vibration API) for damage and power-ups
+- [x] Improved screen shake with directional bias
 
 ## v1.3 — Progression & Unlockables
 
