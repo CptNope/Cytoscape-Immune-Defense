@@ -10,6 +10,7 @@ import {
   type Vector, type Pathogen, type Antibody, type Particle, type PowerUp,
   type FloatingText, type ScoreEntry, type Ship, type ActivePowerUps, type VirtualControls,
   type PlayerProfile, type GameModifiers, type PathogenType, type BossType,
+  type GameMode, type CampaignLevel,
   FRICTION, SHIP_TURN_SPEED, BULLET_SPEED, BULLET_LIFE,
   PATHOGEN_MIN_RADIUS, PATHOGEN_MAX_RADIUS, INITIAL_PATHOGEN_COUNT, MAX_PARTICLES,
   POWERUP_DROP_RATE, POWERUP_LIFETIME,
@@ -31,10 +32,13 @@ import {
   render,
   AudioEngine, haptic, HAPTIC_DAMAGE, HAPTIC_POWERUP, HAPTIC_BOMB, HAPTIC_FIRE,
   loadProfile, awardXp, recordRunStats, computeModifiers,
+  CAMPAIGN_LEVELS, TIME_ATTACK_INITIAL_SECONDS, TIME_ATTACK_KILL_BONUS_SECONDS, TIME_ATTACK_BOSS_BONUS_SECONDS,
 } from '../engine';
 import AudioControls from './AudioControls';
 import UpgradeScreen from './UpgradeScreen';
 import StatsPanel from './StatsPanel';
+import ModeSelect from './ModeSelect';
+import CampaignBriefing from './CampaignBriefing';
 
 export default function Game() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -51,8 +55,19 @@ export default function Game() {
 
   // Progression
   const [profile, setProfile] = useState<PlayerProfile>(loadProfile());
-  const [menuView, setMenuView] = useState<'upgrades' | 'stats'>('upgrades');
+  const [menuView, setMenuView] = useState<'upgrades' | 'stats' | 'modes' | 'briefing'>('upgrades');
   const modifiersRef = useRef<GameModifiers>(computeModifiers(loadProfile()));
+
+  // Game Modes
+  const [gameMode, setGameMode] = useState<GameMode>('endless');
+  const [campaignLevelIdx, setCampaignLevelIdx] = useState(0);
+  const [campaignProgress, setCampaignProgress] = useState(() => {
+    try { return parseInt(localStorage.getItem('cyto-campaign-progress') || '0', 10); } catch { return 0; }
+  });
+  const [timeAttackTimer, setTimeAttackTimer] = useState(0);
+  const timeAttackRef = useRef(0); // frames remaining (at 60fps)
+  const gameModeRef = useRef<GameMode>('endless');
+  const campaignLevelRef = useRef<CampaignLevel | null>(null);
 
   // Run tracking
   const runKillsRef = useRef(0);
@@ -132,9 +147,22 @@ export default function Game() {
     runKillsByTypeRef.current = {};
     runStartRef.current = Date.now();
     regenTimerRef.current = 0;
-    
-    for (let i = 0; i < INITIAL_PATHOGEN_COUNT; i++) {
-      spawnPathogen(true);
+
+    // Mode-specific initial spawning
+    const mode = gameModeRef.current;
+    if (mode === 'campaign' && campaignLevelRef.current) {
+      spawnCampaignWave(campaignLevelRef.current);
+    } else if (mode === 'time_attack') {
+      timeAttackRef.current = TIME_ATTACK_INITIAL_SECONDS * 60; // convert to frames
+      setTimeAttackTimer(TIME_ATTACK_INITIAL_SECONDS);
+      for (let i = 0; i < INITIAL_PATHOGEN_COUNT + 2; i++) {
+        spawnPathogen(true);
+      }
+    } else {
+      // Endless and Zen modes
+      for (let i = 0; i < INITIAL_PATHOGEN_COUNT; i++) {
+        spawnPathogen(true);
+      }
     }
   };
 
@@ -269,6 +297,72 @@ export default function Game() {
       shieldHealth: BIOFILM_SHIELD_HEALTH,
       maxShieldHealth: BIOFILM_SHIELD_HEALTH,
     });
+  };
+
+  // --- Campaign Spawner ---
+
+  const spawnTypedPathogen = (type: PathogenType, variant?: Pathogen['variant']) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    // Use type-specific spawners for new types
+    if (type === 'prion') { spawnPrionSwarm(); return; }
+    if (type === 'cancer') { spawnCancerCell(); return; }
+    if (type === 'biofilm') { spawnBiofilm(); return; }
+
+    let pos: Vector;
+    do {
+      pos = { x: Math.random() * canvas.width, y: Math.random() * canvas.height };
+    } while (distance(pos, shipRef.current.pos) < 200);
+
+    const radius = type === 'fungus' ? randomRange(35, PATHOGEN_MAX_RADIUS) :
+      type === 'parasite' ? randomRange(PATHOGEN_MIN_RADIUS + 5, 25) :
+      type === 'bacteria' ? randomRange(20, 35) :
+      randomRange(PATHOGEN_MIN_RADIUS + 5, 25);
+    const sides = variant === 'swift' ? 16 : Math.floor(randomRange(6, 12));
+    const noise = Array.from({ length: sides }, () => randomRange(0.7, 1.3));
+    const hp = (radius / 10) * (type === 'fungus' ? 2 : 1) * (variant === 'armored' ? 2.5 : variant === 'swift' ? 0.6 : 1);
+
+    pathogensRef.current.push({
+      id: nextIdRef.current++,
+      pos,
+      vel: {
+        x: randomRange(-2, 2) * (type === 'parasite' ? 1.5 : 1) * (variant === 'swift' ? 1.8 : variant === 'armored' ? 0.6 : 1),
+        y: randomRange(-2, 2) * (type === 'parasite' ? 1.5 : 1) * (variant === 'swift' ? 1.8 : variant === 'armored' ? 0.6 : 1),
+      },
+      radius,
+      rotation: Math.random() * Math.PI * 2,
+      type,
+      variant,
+      health: hp,
+      maxHealth: hp,
+      points: Math.floor(100 / radius) * 10 * (type === 'parasite' ? 2 : 1) * (variant ? 1.5 : 1),
+      sides,
+      noise,
+    });
+  };
+
+  const spawnCampaignWave = (campaignLevel: CampaignLevel) => {
+    // Spawn specified pathogens
+    for (const entry of campaignLevel.pathogens) {
+      if (entry.type === 'prion') {
+        // Prion count is swarm count, not individual — spawn swarms
+        const swarms = Math.max(1, Math.floor(entry.count / PRION_SWARM_SIZE));
+        for (let i = 0; i < swarms; i++) spawnPrionSwarm();
+      } else {
+        for (let i = 0; i < entry.count; i++) {
+          spawnTypedPathogen(entry.type, entry.variant);
+        }
+      }
+    }
+    // Spawn boss if defined
+    if (campaignLevel.boss) {
+      const bossLevelMap: Record<string, number> = {
+        mega_virus: 5, bacterial_colony: 10, parasitic_worm: 15, fungal_bloom: 20,
+      };
+      spawnBoss(bossLevelMap[campaignLevel.boss] || 5);
+      audioRef.current.playBossSpawn();
+    }
   };
 
   // --- Boss Spawner ---
@@ -659,7 +753,14 @@ export default function Game() {
 
       // Collision with Ship
       if (circlesCollide(p, ship)) {
-        if (activePowerUpsRef.current.shield > 0) {
+        if (gameModeRef.current === 'zen') {
+          // Zen mode: no damage, just bounce
+          const angle = Math.atan2(p.pos.y - ship.pos.y, p.pos.x - ship.pos.x);
+          p.vel.x = Math.cos(angle) * 3;
+          p.vel.y = Math.sin(angle) * 3;
+          ship.vel.x -= Math.cos(angle) * 2;
+          ship.vel.y -= Math.sin(angle) * 2;
+        } else if (activePowerUpsRef.current.shield > 0) {
           setShake(5);
           shakeAngleRef.current = Math.atan2(p.pos.y - ship.pos.y, p.pos.x - ship.pos.x);
           audioRef.current.playShieldBounce();
@@ -690,8 +791,8 @@ export default function Game() {
           ship.vel.y += Math.sin(angle) * 5;
         }
         
-        // Damage pathogen too?
-        p.health -= 1;
+        // Damage pathogen too? (not in zen)
+        if (gameModeRef.current !== 'zen') p.health -= 1;
       }
     });
 
@@ -766,6 +867,13 @@ export default function Game() {
               spawnFloatingText(p.pos, 'BOSS DEFEATED!', '#fbbf24', 28);
               setShake(25);
               audioRef.current.playBossDefeat();
+            }
+
+            // Time Attack: add bonus time on kill
+            if (gameModeRef.current === 'time_attack') {
+              const bonus = p.isBoss ? TIME_ATTACK_BOSS_BONUS_SECONDS : TIME_ATTACK_KILL_BONUS_SECONDS;
+              timeAttackRef.current += bonus * 60;
+              spawnFloatingText(p.pos, `+${bonus}s`, '#4ade80', 12);
             }
 
             // Track kill
@@ -871,41 +979,83 @@ export default function Game() {
 
     // 5. Level Progression
     if (pathogensRef.current.length === 0) {
-      const nextLevel = level + 1;
-      setLevel(nextLevel);
-      audioRef.current.playLevelClear();
+      const mode = gameModeRef.current;
 
-      // Check if this is a boss level
-      const isBossLevel = (BOSS_LEVELS as readonly number[]).includes(nextLevel);
-
-      if (isBossLevel) {
-        // Boss level: spawn boss + a few regular pathogens
-        spawnBoss(nextLevel);
-        audioRef.current.playBossSpawn();
-        spawnFloatingText(shipRef.current.pos, '⚠ BOSS INCOMING ⚠', '#ef4444', 24);
-        for (let i = 0; i < Math.floor(INITIAL_PATHOGEN_COUNT / 2); i++) {
+      if (mode === 'campaign') {
+        // Campaign: advance to next campaign level
+        const nextIdx = campaignLevelIdx + 1;
+        if (nextIdx >= CAMPAIGN_LEVELS.length) {
+          // Campaign complete!
+          spawnFloatingText(shipRef.current.pos, 'CAMPAIGN COMPLETE!', '#4ade80', 28);
+          setGameState('gameover');
+          audioRef.current.stopThrust();
+          audioRef.current.stopMusic();
+        } else {
+          audioRef.current.playLevelClear();
+          setCampaignLevelIdx(nextIdx);
+          const newProgress = Math.max(campaignProgress, nextIdx);
+          setCampaignProgress(newProgress);
+          try { localStorage.setItem('cyto-campaign-progress', String(newProgress)); } catch {}
+          const cl = CAMPAIGN_LEVELS[nextIdx];
+          campaignLevelRef.current = cl;
+          setLevel(cl.level);
+          spawnCampaignWave(cl);
+          if (cl.objectiveText) {
+            spawnFloatingText(shipRef.current.pos, cl.title, '#60a5fa', 22);
+          }
+        }
+      } else if (mode === 'zen') {
+        // Zen: gently respawn a few pathogens, no level number
+        setLevel(l => l + 1);
+        for (let i = 0; i < INITIAL_PATHOGEN_COUNT; i++) {
           spawnPathogen(true);
         }
       } else {
-        // Regular level: spawn standard pathogens + new types based on level
-        for (let i = 0; i < INITIAL_PATHOGEN_COUNT + level; i++) {
-          spawnPathogen(true);
-        }
+        // Endless & Time Attack: standard level progression
+        const nextLevel = level + 1;
+        setLevel(nextLevel);
+        audioRef.current.playLevelClear();
 
-        // Prion swarms start appearing at level PRION_MIN_LEVEL
-        if (nextLevel >= PRION_MIN_LEVEL && Math.random() < 0.3 + nextLevel * 0.02) {
-          spawnPrionSwarm();
-        }
+        // Check if this is a boss level
+        const isBossLevel = (BOSS_LEVELS as readonly number[]).includes(nextLevel);
 
-        // Cancer cells start appearing at level CANCER_MIN_LEVEL
-        if (nextLevel >= CANCER_MIN_LEVEL && Math.random() < 0.2 + nextLevel * 0.02) {
-          spawnCancerCell();
-        }
+        if (isBossLevel) {
+          spawnBoss(nextLevel);
+          audioRef.current.playBossSpawn();
+          spawnFloatingText(shipRef.current.pos, '⚠ BOSS INCOMING ⚠', '#ef4444', 24);
+          for (let i = 0; i < Math.floor(INITIAL_PATHOGEN_COUNT / 2); i++) {
+            spawnPathogen(true);
+          }
+        } else {
+          for (let i = 0; i < INITIAL_PATHOGEN_COUNT + level; i++) {
+            spawnPathogen(true);
+          }
 
-        // Biofilms start appearing at level BIOFILM_MIN_LEVEL
-        if (nextLevel >= BIOFILM_MIN_LEVEL && Math.random() < 0.15 + nextLevel * 0.02) {
-          spawnBiofilm();
+          if (nextLevel >= PRION_MIN_LEVEL && Math.random() < 0.3 + nextLevel * 0.02) {
+            spawnPrionSwarm();
+          }
+          if (nextLevel >= CANCER_MIN_LEVEL && Math.random() < 0.2 + nextLevel * 0.02) {
+            spawnCancerCell();
+          }
+          if (nextLevel >= BIOFILM_MIN_LEVEL && Math.random() < 0.15 + nextLevel * 0.02) {
+            spawnBiofilm();
+          }
         }
+      }
+    }
+
+    // 5b. Time Attack: countdown timer
+    if (gameModeRef.current === 'time_attack') {
+      timeAttackRef.current--;
+      const secs = Math.max(0, Math.ceil(timeAttackRef.current / 60));
+      setTimeAttackTimer(secs);
+      if (timeAttackRef.current <= 0) {
+        setGameState('gameover');
+        spawnFloatingText(shipRef.current.pos, 'TIME\'S UP!', '#f59e0b', 28);
+        createExplosion(shipRef.current.pos, '#f59e0b', 25);
+        audioRef.current.playGameOver();
+        audioRef.current.stopThrust();
+        audioRef.current.stopMusic();
       }
     }
 
@@ -1046,15 +1196,48 @@ export default function Game() {
     }
   }, [gameState]);
 
-  const startGame = () => {
+  const startGame = (mode?: GameMode) => {
+    const m = mode || gameMode;
+    setGameMode(m);
+    gameModeRef.current = m;
     setLastScoreRank(null);
-    // Recompute modifiers from latest profile
     modifiersRef.current = computeModifiers(profile);
     audioRef.current.init();
+
+    if (m === 'campaign') {
+      // Start from current campaign level index
+      const cl = CAMPAIGN_LEVELS[campaignLevelIdx];
+      campaignLevelRef.current = cl;
+      setLevel(cl.level);
+    } else {
+      campaignLevelRef.current = null;
+    }
+
     initGame();
+
+    if (m === 'campaign') {
+      setLevel(CAMPAIGN_LEVELS[campaignLevelIdx].level);
+    }
+
     setGameState('playing');
     setMenuView('upgrades');
     audioRef.current.startMusic();
+  };
+
+  const handleModeSelect = (mode: GameMode) => {
+    setGameMode(mode);
+    gameModeRef.current = mode;
+    if (mode === 'campaign') {
+      setCampaignLevelIdx(campaignProgress);
+      campaignLevelRef.current = CAMPAIGN_LEVELS[campaignProgress] || CAMPAIGN_LEVELS[0];
+      setMenuView('briefing');
+    } else {
+      startGame(mode);
+    }
+  };
+
+  const startCampaignFromBriefing = () => {
+    startGame('campaign');
   };
 
   return (
@@ -1097,9 +1280,38 @@ export default function Game() {
 
             <div className="flex flex-col items-end gap-2">
               <div className="bg-black/40 backdrop-blur-md border border-white/10 px-4 py-2 rounded-xl">
-                <span className="text-xs uppercase tracking-widest text-white/50 font-semibold">Level</span>
+                <span className="text-xs uppercase tracking-widest text-white/50 font-semibold">
+                  {gameMode === 'campaign' ? 'Mission' : gameMode === 'zen' ? 'Wave' : 'Level'}
+                </span>
                 <div className="font-mono text-2xl font-bold text-center">{level}</div>
               </div>
+
+              {/* Time Attack: countdown timer */}
+              {gameMode === 'time_attack' && (
+                <div className={`bg-black/40 backdrop-blur-md border px-4 py-2 rounded-xl ${
+                  timeAttackTimer <= 10 ? 'border-red-500/50 animate-pulse' : 'border-yellow-500/30'
+                }`}>
+                  <span className="text-xs uppercase tracking-widest text-yellow-400/60 font-semibold">Time</span>
+                  <div className={`font-mono text-2xl font-bold text-center ${
+                    timeAttackTimer <= 10 ? 'text-red-400' : 'text-yellow-400'
+                  }`}>{timeAttackTimer}s</div>
+                </div>
+              )}
+
+              {/* Campaign: objective */}
+              {gameMode === 'campaign' && campaignLevelRef.current?.objectiveText && (
+                <div className="bg-black/40 backdrop-blur-md border border-blue-500/20 px-3 py-1.5 rounded-xl max-w-[200px]">
+                  <span className="text-[10px] uppercase tracking-widest text-blue-400/60">Objective</span>
+                  <div className="font-mono text-[11px] text-blue-300">{campaignLevelRef.current.objectiveText}</div>
+                </div>
+              )}
+
+              {/* Zen: relaxing label */}
+              {gameMode === 'zen' && (
+                <div className="bg-black/40 backdrop-blur-md border border-purple-500/20 px-3 py-1.5 rounded-xl">
+                  <span className="font-mono text-xs text-purple-300/60">Zen Mode</span>
+                </div>
+              )}
             </div>
           </motion.div>
         )}
@@ -1203,7 +1415,7 @@ export default function Game() {
           <UpgradeScreen
             profile={profile}
             onProfileChange={setProfile}
-            onPlay={startGame}
+            onPlay={() => setMenuView('modes')}
             onShowStats={() => setMenuView('stats')}
           />
         )}
@@ -1215,17 +1427,63 @@ export default function Game() {
           />
         )}
 
+        {gameState === 'menu' && menuView === 'modes' && (
+          <ModeSelect
+            onSelect={handleModeSelect}
+            onBack={() => setMenuView('upgrades')}
+            campaignProgress={campaignProgress}
+          />
+        )}
+
+        {gameState === 'menu' && menuView === 'briefing' && campaignLevelRef.current && (
+          <CampaignBriefing
+            level={campaignLevelRef.current}
+            onStart={startCampaignFromBriefing}
+          />
+        )}
+
         {gameState === 'gameover' && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute inset-0 flex items-center justify-center bg-red-950/40 backdrop-blur-md z-20"
+            className={`absolute inset-0 flex items-center justify-center backdrop-blur-md z-20 ${
+              gameMode === 'campaign' && campaignLevelIdx >= CAMPAIGN_LEVELS.length - 1
+                ? 'bg-emerald-950/40'
+                : gameMode === 'zen' ? 'bg-purple-950/40'
+                : gameMode === 'time_attack' ? 'bg-yellow-950/40'
+                : 'bg-red-950/40'
+            }`}
           >
-            <div className="max-w-md w-full p-12 text-center space-y-8 bg-black/80 border border-red-500/30 rounded-[40px] shadow-2xl shadow-red-500/20">
+            <div className={`max-w-md w-full p-12 text-center space-y-8 bg-black/80 rounded-[40px] shadow-2xl ${
+              gameMode === 'campaign' && campaignLevelIdx >= CAMPAIGN_LEVELS.length - 1
+                ? 'border border-emerald-500/30 shadow-emerald-500/20'
+                : gameMode === 'zen' ? 'border border-purple-500/30 shadow-purple-500/20'
+                : gameMode === 'time_attack' ? 'border border-yellow-500/30 shadow-yellow-500/20'
+                : 'border border-red-500/30 shadow-red-500/20'
+            }`}>
               <div className="space-y-2">
-                <h2 className="text-5xl font-black text-red-500 italic uppercase">System Failure</h2>
-                <p className="text-white/60 font-mono text-sm">The pathogens have overwhelmed the host.</p>
+                {gameMode === 'campaign' && campaignLevelIdx >= CAMPAIGN_LEVELS.length - 1 ? (
+                  <>
+                    <h2 className="text-4xl font-black text-emerald-400 italic uppercase">Host Saved!</h2>
+                    <p className="text-white/60 font-mono text-sm">All 20 campaign levels completed. The immune system prevails.</p>
+                  </>
+                ) : gameMode === 'time_attack' ? (
+                  <>
+                    <h2 className="text-5xl font-black text-yellow-400 italic uppercase">Time&apos;s Up!</h2>
+                    <p className="text-white/60 font-mono text-sm">The clock has run out.</p>
+                  </>
+                ) : gameMode === 'zen' ? (
+                  <>
+                    <h2 className="text-4xl font-black text-purple-400 italic uppercase">Session Complete</h2>
+                    <p className="text-white/60 font-mono text-sm">A peaceful patrol through the bloodstream.</p>
+                  </>
+                ) : (
+                  <>
+                    <h2 className="text-5xl font-black text-red-500 italic uppercase">System Failure</h2>
+                    <p className="text-white/60 font-mono text-sm">The pathogens have overwhelmed the host.</p>
+                  </>
+                )}
               </div>
 
               <div className="py-6 border-y border-white/10 space-y-4">
@@ -1239,13 +1497,15 @@ export default function Game() {
                   )}
                 </div>
 
-                <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-3">
-                  <div className="text-[10px] uppercase text-yellow-400/60 tracking-widest">XP Earned</div>
-                  <div className="font-mono text-2xl font-bold text-yellow-400">+{score.toLocaleString()}</div>
-                  <div className="text-[10px] text-white/30 mt-1">Kills: {runKillsRef.current} · Level reached: {level}</div>
-                </div>
+                {gameMode !== 'zen' && (
+                  <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-3">
+                    <div className="text-[10px] uppercase text-yellow-400/60 tracking-widest">XP Earned</div>
+                    <div className="font-mono text-2xl font-bold text-yellow-400">+{score.toLocaleString()}</div>
+                    <div className="text-[10px] text-white/30 mt-1">Kills: {runKillsRef.current} · Level reached: {level}</div>
+                  </div>
+                )}
 
-                {topScores.length > 1 && (
+                {topScores.length > 1 && gameMode !== 'zen' && (
                   <div className="space-y-1">
                     <div className="text-[10px] uppercase text-white/30 tracking-widest">Leaderboard</div>
                     {topScores.slice(0, 5).map((s, i) => (
@@ -1264,19 +1524,23 @@ export default function Game() {
 
               <div className="flex gap-3">
                 <button
-                  onClick={() => setGameState('menu')}
+                  onClick={() => { setGameState('menu'); setMenuView('upgrades'); }}
                   className="flex-1 py-3 bg-white/5 border border-white/10 text-white/60 font-bold rounded-2xl hover:bg-white/10 transition-colors"
                 >
-                  UPGRADES
+                  MENU
                 </button>
                 <button
-                  onClick={startGame}
-                  className="group relative flex-[2] py-4 bg-red-500 text-white font-bold rounded-2xl overflow-hidden transition-transform active:scale-95"
+                  onClick={() => startGame(gameMode)}
+                  className={`group relative flex-[2] py-4 text-white font-bold rounded-2xl overflow-hidden transition-transform active:scale-95 ${
+                    gameMode === 'time_attack' ? 'bg-yellow-500' : gameMode === 'zen' ? 'bg-purple-500' : 'bg-red-500'
+                  }`}
                 >
-                  <div className="absolute inset-0 bg-red-600 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
+                  <div className={`absolute inset-0 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ${
+                    gameMode === 'time_attack' ? 'bg-yellow-600' : gameMode === 'zen' ? 'bg-purple-600' : 'bg-red-600'
+                  }`} />
                   <span className="relative flex items-center justify-center gap-2">
                     <RefreshCw className="w-5 h-5" />
-                    RETRY
+                    {gameMode === 'campaign' ? 'REPLAY' : 'RETRY'}
                   </span>
                 </button>
               </div>

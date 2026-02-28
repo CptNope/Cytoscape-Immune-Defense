@@ -17,3 +17,4 @@ export {
   computeModifiers, calcPlayerLevel, xpToNextLevel, xpProgressPercent,
   resetProfile,
 } from './progression';
+export { CAMPAIGN_LEVELS, TIME_ATTACK_INITIAL_SECONDS, TIME_ATTACK_KILL_BONUS_SECONDS, TIME_ATTACK_BOSS_BONUS_SECONDS } from './campaign';

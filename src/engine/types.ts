@@ -96,6 +96,20 @@ export interface VirtualControls {
   fire: boolean;
 }
 
+// --- Game Modes ---
+
+export type GameMode = 'endless' | 'campaign' | 'time_attack' | 'zen';
+
+export interface CampaignLevel {
+  level: number;
+  title: string;
+  briefing: string;               // story text shown before the wave
+  pathogens: { type: PathogenType; count: number; variant?: 'armored' | 'swift' | 'stalker' }[];
+  boss?: BossType;                // optional boss for this level
+  timeLimit?: number;             // optional time limit in seconds
+  objectiveText?: string;         // short HUD objective line
+}
+
 // --- Progression System ---
 
 export type UpgradeId =

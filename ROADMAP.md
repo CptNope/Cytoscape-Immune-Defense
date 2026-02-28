@@ -2,7 +2,7 @@
 
 This document outlines planned features and expansion ideas for the game, organized by release version.
 
-> **Version history:** v1.0 initial release → v1.1 PWA & scores → v1.2 engine refactor & tests → v1.3 audio & feedback → v1.4 progression & unlockables → v1.5 new enemies & bosses
+> **Version history:** v1.0 initial release → v1.1 PWA & scores → v1.2 engine refactor & tests → v1.3 audio & feedback → v1.4 progression & unlockables → v1.5 new enemies & bosses → v1.6 game modes
 
 ---
 
@@ -40,14 +40,14 @@ This document outlines planned features and expansion ideas for the game, organi
   - Level 15: **Parasitic Worm** — multi-segment entity that tracks aggressively
   - Level 20: **Fungal Bloom** — fills screen with spore clouds, must destroy central core
 
-## v1.6 — Game Modes
+## v1.6 — Game Modes ✅
 
-- [ ] **Endless Mode** — current mode, renamed
-- [ ] **Campaign Mode** — 20 structured levels with story text between waves
+- [x] **Endless Mode** — current mode, renamed
+- [x] **Campaign Mode** — 20 structured levels with story text between waves
   - Story: follow the immune response from initial infection to recovery
   - Introduce pathogen types gradually with tutorial text
-- [ ] **Time Attack** — survive as long as possible with a countdown timer; kills add time
-- [ ] **Zen Mode** — no damage, no scoring, relaxing exploration with ambient effects
+- [x] **Time Attack** — survive as long as possible with a countdown timer; kills add time
+- [x] **Zen Mode** — no damage, no scoring, relaxing exploration with ambient effects
 
 ## v1.7 — Visual Polish
 

@@ -5,6 +5,37 @@ All notable changes to Cytoscape: Immune Defense will be documented in this file
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] - 2026-02-27
+
+### Added
+- **4 game modes** accessible from a new Mode Select screen:
+  - **Endless Mode** — the classic survival experience, waves escalate forever
+  - **Campaign Mode** — 20 story-driven levels following the immune response from initial infection to recovery
+    - 4 narrative acts: First Contact, Deep Infection, Critical Response, Recovery
+    - Each level has a briefing screen with story text, enemy roster preview, and objective
+    - Progress persisted to localStorage (resume from highest completed level)
+    - Boss encounters at levels 5, 10, 15, and 20
+    - Victory screen when all 20 levels completed
+  - **Time Attack** — 60-second countdown; every kill adds +2s, boss kills add +15s
+    - Flashing red timer when ≤10s remain
+    - Game over when timer hits zero
+  - **Zen Mode** — no damage, no scoring, no XP; just relaxing exploration
+    - Pathogens bounce harmlessly off the ship
+    - Waves respawn gently when cleared
+- **Mode Select UI** (`ModeSelect.tsx`) — animated card grid with icons, descriptions, and campaign progress indicator
+- **Campaign Briefing UI** (`CampaignBriefing.tsx`) — story text, objective, enemy roster preview, and boss callout before each mission
+- **Campaign level data** (`campaign.ts`) — 20 structured levels with curated enemy compositions and story
+- **Mode-aware HUD**: time attack countdown, campaign objective display, zen mode label
+- **Mode-aware Game Over screen**: campaign victory (green), time's up (yellow), zen session (purple), system failure (red)
+- `GameMode` and `CampaignLevel` types added to the engine type system
+- `spawnTypedPathogen` and `spawnCampaignWave` helpers for campaign-specific spawning
+
+### Changed
+- "Play" button on Upgrade Screen now navigates to Mode Select instead of starting directly
+- Game Over "UPGRADES" button renamed to "MENU" for clarity
+- Level progression logic refactored to be mode-aware (campaign, endless, time attack, zen each have distinct behavior)
+- Ship-pathogen collision is harmless in Zen Mode (bounce only)
+
 ## [1.5.0] - 2026-02-27
 
 ### Added
