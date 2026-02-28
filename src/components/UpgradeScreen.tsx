@@ -38,21 +38,21 @@ export default function UpgradeScreen({ profile, onProfileChange, onPlay, onShow
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="absolute inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm z-10 overflow-y-auto py-8"
+      className="absolute inset-0 flex items-start justify-center bg-black/70 backdrop-blur-sm z-10 overflow-y-auto py-4 sm:py-8 px-1"
     >
-      <div className="max-w-2xl w-full mx-4 space-y-6">
+      <div className="max-w-2xl w-full mx-2 sm:mx-4 space-y-4 sm:space-y-6">
         {/* Header: Player Level & XP */}
         <div className="text-center space-y-3">
           <motion.h1
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="text-5xl font-black tracking-tighter italic uppercase"
+            className="text-3xl sm:text-5xl font-black tracking-tighter italic uppercase"
           >
             CYTOSCAPE
           </motion.h1>
           <p className="text-emerald-400 font-mono text-sm tracking-widest uppercase">Immune Defense Protocol</p>
 
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-4 inline-block min-w-[280px]">
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-3 sm:p-4 inline-block min-w-0 sm:min-w-[280px] w-full sm:w-auto max-w-[320px]">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs uppercase text-white/40 tracking-widest">Operator Level</span>
               <span className="font-mono text-xl font-bold text-emerald-400">{profile.playerLevel}</span>
@@ -171,16 +171,16 @@ export default function UpgradeScreen({ profile, onProfileChange, onPlay, onShow
         </div>
 
         {/* Actions */}
-        <div className="flex gap-3">
+        <div className="flex gap-2 sm:gap-3 pb-4">
           <button
             onClick={onShowStats}
-            className="flex-1 py-3 bg-white/5 border border-white/10 text-white/60 font-bold rounded-2xl hover:bg-white/10 transition-colors"
+            className="flex-1 py-2.5 sm:py-3 bg-white/5 border border-white/10 text-white/60 font-bold rounded-xl sm:rounded-2xl hover:bg-white/10 transition-colors text-sm sm:text-base"
           >
             STATS
           </button>
           <button
             onClick={onPlay}
-            className="group relative flex-[2] py-4 bg-white text-black font-bold rounded-2xl overflow-hidden transition-transform active:scale-95"
+            className="group relative flex-[2] py-3 sm:py-4 bg-white text-black font-bold rounded-xl sm:rounded-2xl overflow-hidden transition-transform active:scale-95"
           >
             <div className="absolute inset-0 bg-emerald-400 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
             <span className="relative flex items-center justify-center gap-2">

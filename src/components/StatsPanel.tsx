@@ -36,15 +36,15 @@ export default function StatsPanel({ profile, onBack }: StatsPanelProps) {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="absolute inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm z-10"
+      className="absolute inset-0 flex items-start justify-center bg-black/70 backdrop-blur-sm z-10 overflow-y-auto py-4 sm:py-8"
     >
-      <div className="max-w-md w-full mx-4 space-y-6">
+      <div className="max-w-md w-full mx-3 sm:mx-4 space-y-4 sm:space-y-6">
         <div className="text-center space-y-1">
-          <h2 className="text-3xl font-black italic uppercase tracking-wider">Operator Stats</h2>
+          <h2 className="text-2xl sm:text-3xl font-black italic uppercase tracking-wider">Operator Stats</h2>
           <p className="text-white/30 font-mono text-xs">Lifetime performance data</p>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-2 sm:gap-3">
           <StatCard label="Total Runs" value={stats.totalRuns.toLocaleString()} />
           <StatCard label="Highest Level" value={stats.highestLevel.toString()} />
           <StatCard label="Lifetime Score" value={stats.totalScore.toLocaleString()} />
@@ -81,7 +81,7 @@ export default function StatsPanel({ profile, onBack }: StatsPanelProps) {
 
         <button
           onClick={onBack}
-          className="w-full py-3 bg-white/5 border border-white/10 text-white/60 font-bold rounded-2xl hover:bg-white/10 transition-colors flex items-center justify-center gap-2"
+          className="w-full py-2.5 sm:py-3 mb-4 bg-white/5 border border-white/10 text-white/60 font-bold rounded-xl sm:rounded-2xl hover:bg-white/10 transition-colors flex items-center justify-center gap-2"
         >
           <ArrowLeft className="w-4 h-4" /> BACK
         </button>

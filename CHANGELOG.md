@@ -5,6 +5,21 @@ All notable changes to Cytoscape: Immune Defense will be documented in this file
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.0] - 2026-02-28
+
+### Fixed
+- **Full responsive design** — all screens now work in portrait and landscape on phones, tablets, and desktop:
+  - **ModeSelect**: scrollable container, `clamp()` font sizes, `min()` grid columns for narrow screens, safe-area padding for notched devices
+  - **CampaignBriefing**: scrollable, responsive text/button sizes, constrained widths, safe-area padding
+  - **UpgradeScreen**: `items-start` + scroll instead of `items-center` (prevents vertical overflow clipping), responsive title (`text-3xl sm:text-5xl`), compact padding/margins on small screens, bottom padding for scroll
+  - **StatsPanel**: scrollable, responsive heading sizes, compact gaps
+  - **HUD**: compact on phones (`p-2`, `w-20` health bar, `text-[10px]` health text), scales up at `sm`/`md` breakpoints; time attack timer and campaign objective also scale
+  - **Game Over screen**: scrollable (`max-h-[95vh] overflow-y-auto`), responsive score text (`text-3xl sm:text-5xl md:text-6xl`), reduced padding on mobile, compact border radius
+  - **Pause menu**: responsive heading and button sizes
+  - **Mobile controls**: joystick and fire button repositioned closer to edges on small screens (`bottom-8 left-4`), smaller sizes (`w-24 h-24 sm:w-32 sm:h-32`), pause button repositioned
+- All overlays use `overflow-y-auto` to prevent content being cut off on short viewports
+- iOS safe-area insets respected via `env(safe-area-inset-*)` padding
+
 ## [1.7.0] - 2026-02-27
 
 ### Added

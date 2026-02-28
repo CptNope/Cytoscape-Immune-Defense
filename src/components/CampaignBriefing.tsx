@@ -24,19 +24,23 @@ export default function CampaignBriefing({ level, onStart }: CampaignBriefingPro
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        justifyContent: 'center',
+        justifyContent: 'flex-start',
         background: 'radial-gradient(ellipse at center, #0a1020 0%, #0a0505 70%)',
-        padding: '24px',
+        padding: 'env(safe-area-inset-top, 12px) 16px env(safe-area-inset-bottom, 12px)',
+        paddingTop: 'max(env(safe-area-inset-top, 12px), 12px)',
         zIndex: 25,
         fontFamily: "'JetBrains Mono', monospace",
         color: '#e5e5e5',
+        overflowY: 'auto',
+        WebkitOverflowScrolling: 'touch',
       }}
     >
+      <div style={{ flex: '0 0 auto', minHeight: 'clamp(10px, 3vh, 40px)' }} />
       {/* Level number */}
       <motion.div
         initial={{ y: -10, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        style={{ fontSize: '12px', color: '#60a5fa', letterSpacing: '3px', marginBottom: '6px' }}
+        style={{ fontSize: '11px', color: '#60a5fa', letterSpacing: '3px', marginBottom: '4px' }}
       >
         LEVEL {level.level} OF 20
       </motion.div>
@@ -47,9 +51,9 @@ export default function CampaignBriefing({ level, onStart }: CampaignBriefingPro
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 0.1 }}
         style={{
-          fontSize: '32px',
+          fontSize: 'clamp(22px, 5vw, 32px)',
           color: level.boss ? '#ef4444' : '#ffffff',
-          marginBottom: '24px',
+          marginBottom: 'clamp(12px, 3vw, 24px)',
           textAlign: 'center',
           letterSpacing: '2px',
           textShadow: level.boss ? '0 0 20px rgba(239,68,68,0.5)' : 'none',
@@ -65,11 +69,12 @@ export default function CampaignBriefing({ level, onStart }: CampaignBriefingPro
         transition={{ delay: 0.3 }}
         style={{
           maxWidth: '480px',
-          fontSize: '13px',
-          lineHeight: '1.7',
+          width: '100%',
+          fontSize: 'clamp(11px, 2.5vw, 13px)',
+          lineHeight: '1.6',
           color: '#a3a3a3',
           textAlign: 'center',
-          marginBottom: '28px',
+          marginBottom: 'clamp(14px, 3vw, 28px)',
         }}
       >
         {level.briefing}
@@ -82,13 +87,16 @@ export default function CampaignBriefing({ level, onStart }: CampaignBriefingPro
           animate={{ opacity: 1 }}
           transition={{ delay: 0.5 }}
           style={{
-            fontSize: '12px',
+            fontSize: '11px',
             color: '#fbbf24',
-            marginBottom: '24px',
-            padding: '8px 16px',
+            marginBottom: 'clamp(12px, 3vw, 24px)',
+            padding: '6px 12px',
             border: '1px solid #fbbf2440',
             borderRadius: '6px',
             background: 'rgba(251, 191, 36, 0.05)',
+            textAlign: 'center',
+            maxWidth: '480px',
+            width: '100%',
           }}
         >
           OBJECTIVE: {level.objectiveText}
@@ -102,10 +110,12 @@ export default function CampaignBriefing({ level, onStart }: CampaignBriefingPro
         transition={{ delay: 0.6 }}
         style={{
           display: 'flex',
-          gap: '12px',
+          gap: '8px',
           flexWrap: 'wrap',
           justifyContent: 'center',
-          marginBottom: '28px',
+          marginBottom: 'clamp(14px, 3vw, 28px)',
+          maxWidth: '480px',
+          width: '100%',
         }}
       >
         {level.pathogens.map((p, i) => {
@@ -163,9 +173,9 @@ export default function CampaignBriefing({ level, onStart }: CampaignBriefingPro
           background: 'linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%)',
           border: '2px solid #60a5fa',
           borderRadius: '12px',
-          padding: '14px 36px',
+          padding: 'clamp(10px, 2.5vw, 14px) clamp(24px, 5vw, 36px)',
           color: '#60a5fa',
-          fontSize: '16px',
+          fontSize: 'clamp(14px, 3vw, 16px)',
           fontWeight: 700,
           cursor: 'pointer',
           display: 'flex',
@@ -173,6 +183,8 @@ export default function CampaignBriefing({ level, onStart }: CampaignBriefingPro
           gap: '10px',
           fontFamily: 'inherit',
           letterSpacing: '2px',
+          marginBottom: '16px',
+          flexShrink: 0,
         }}
       >
         <Play size={18} /> DEPLOY

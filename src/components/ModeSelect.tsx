@@ -57,30 +57,34 @@ export default function ModeSelect({ onSelect, onBack, campaignProgress }: ModeS
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        justifyContent: 'center',
+        justifyContent: 'flex-start',
         background: 'radial-gradient(ellipse at center, #1a0a0a 0%, #0a0505 70%)',
-        padding: '20px',
+        padding: 'env(safe-area-inset-top, 12px) 12px env(safe-area-inset-bottom, 12px)',
+        paddingTop: 'max(env(safe-area-inset-top, 12px), 12px)',
         zIndex: 20,
         fontFamily: "'JetBrains Mono', monospace",
         color: '#e5e5e5',
+        overflowY: 'auto',
+        WebkitOverflowScrolling: 'touch',
       }}
     >
+      <div style={{ flex: '0 0 auto', minHeight: '20px' }} />
       <motion.h1
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        style={{ fontSize: '28px', marginBottom: '8px', color: '#ffffff', letterSpacing: '2px' }}
+        style={{ fontSize: 'clamp(20px, 5vw, 28px)', marginBottom: '6px', color: '#ffffff', letterSpacing: '2px', textAlign: 'center' }}
       >
         SELECT MODE
       </motion.h1>
 
-      <p style={{ fontSize: '12px', color: '#737373', marginBottom: '24px' }}>
+      <p style={{ fontSize: '11px', color: '#737373', marginBottom: 'clamp(12px, 3vw, 24px)' }}>
         Choose your mission, T-Cell
       </p>
 
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-        gap: '14px',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(min(200px, 100%), 1fr))',
+        gap: '10px',
         maxWidth: '520px',
         width: '100%',
       }}>
@@ -95,12 +99,12 @@ export default function ModeSelect({ onSelect, onBack, campaignProgress }: ModeS
               background: 'rgba(255,255,255,0.04)',
               border: `1px solid ${mode.color}40`,
               borderRadius: '12px',
-              padding: '18px 16px',
+              padding: 'clamp(10px, 2.5vw, 18px) clamp(10px, 2.5vw, 16px)',
               cursor: 'pointer',
               textAlign: 'left',
               display: 'flex',
               flexDirection: 'column',
-              gap: '8px',
+              gap: '6px',
               transition: 'border-color 0.2s, background 0.2s',
               fontFamily: 'inherit',
               color: '#e5e5e5',
@@ -131,7 +135,8 @@ export default function ModeSelect({ onSelect, onBack, campaignProgress }: ModeS
         transition={{ delay: 0.4 }}
         onClick={onBack}
         style={{
-          marginTop: '24px',
+          marginTop: 'clamp(12px, 3vw, 24px)',
+          marginBottom: '12px',
           background: 'none',
           border: '1px solid #404040',
           borderRadius: '8px',
@@ -143,6 +148,7 @@ export default function ModeSelect({ onSelect, onBack, campaignProgress }: ModeS
           gap: '6px',
           fontSize: '13px',
           fontFamily: 'inherit',
+          flexShrink: 0,
         }}
       >
         <ArrowLeft size={14} /> Back

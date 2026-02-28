@@ -2,7 +2,7 @@
 
 This document outlines planned features and expansion ideas for the game, organized by release version.
 
-> **Version history:** v1.0 initial release → v1.1 PWA & scores → v1.2 engine refactor & tests → v1.3 audio & feedback → v1.4 progression & unlockables → v1.5 new enemies & bosses → v1.6 game modes → v1.7 visual polish
+> **Version history:** v1.0 initial release → v1.1 PWA & scores → v1.2 engine refactor & tests → v1.3 audio & feedback → v1.4 progression & unlockables → v1.5 new enemies & bosses → v1.6 game modes → v1.7 visual polish → v1.8 responsive design
 
 ---
 
@@ -59,6 +59,19 @@ This document outlines planned features and expansion ideas for the game, organi
 - [ ] Pathogen death animations — disintegration, cell lysis effects
 - [ ] Level transition animation — "immune response escalating" screen
 - [ ] Dark/light theme toggle (microscope slide vs dark field)
+
+## v1.8 — Responsive Design ✅
+
+- [x] All menus scrollable and viewable on small phone screens (portrait & landscape)
+- [x] ModeSelect — scrollable, clamp() font sizes, min() grid columns, safe-area padding
+- [x] CampaignBriefing — scrollable, responsive text/button sizes, safe-area padding
+- [x] UpgradeScreen — scroll-friendly layout, responsive title/padding/margins
+- [x] StatsPanel — scrollable, responsive heading sizes, compact gaps
+- [x] HUD — compact on phones, scales up at sm/md breakpoints
+- [x] Game Over — scrollable, responsive score/heading text, reduced padding on mobile
+- [x] Pause menu — responsive heading and button sizes
+- [x] Mobile controls — repositioned and resized for small screens
+- [x] iOS safe-area insets respected on notched devices
 
 ## v2.0 — Multiplayer & Social
 

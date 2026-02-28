@@ -1263,41 +1263,41 @@ export default function Game() {
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            className="absolute top-0 left-0 right-0 p-6 flex justify-between items-start pointer-events-none"
+            className="absolute top-0 left-0 right-0 p-2 sm:p-4 md:p-6 flex justify-between items-start pointer-events-none"
           >
             <div className="flex flex-col gap-2">
-              <div className="flex items-center gap-3 bg-black/40 backdrop-blur-md border border-white/10 p-3 rounded-xl">
-                <Activity className="w-5 h-5 text-red-500" />
-                <div className="w-48 h-2 bg-white/10 rounded-full overflow-hidden">
+              <div className="flex items-center gap-1.5 sm:gap-3 bg-black/40 backdrop-blur-md border border-white/10 p-1.5 sm:p-3 rounded-lg sm:rounded-xl">
+                <Activity className="w-4 h-4 sm:w-5 sm:h-5 text-red-500" />
+                <div className="w-20 sm:w-36 md:w-48 h-1.5 sm:h-2 bg-white/10 rounded-full overflow-hidden">
                   <motion.div
                     className="h-full bg-red-500"
                     animate={{ width: `${(health / modifiersRef.current.maxHealth) * 100}%` }}
                     transition={{ type: 'spring', bounce: 0 }}
                   />
                 </div>
-                <span className="font-mono text-sm">{health}/{modifiersRef.current.maxHealth}</span>
+                <span className="font-mono text-[10px] sm:text-sm">{health}/{modifiersRef.current.maxHealth}</span>
               </div>
-              <div className="flex items-center gap-3 bg-black/40 backdrop-blur-md border border-white/10 p-3 rounded-xl">
-                <Trophy className="w-5 h-5 text-yellow-500" />
-                <span className="font-mono text-lg font-bold">{score.toLocaleString()}</span>
+              <div className="flex items-center gap-1.5 sm:gap-3 bg-black/40 backdrop-blur-md border border-white/10 p-1.5 sm:p-3 rounded-lg sm:rounded-xl">
+                <Trophy className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-500" />
+                <span className="font-mono text-sm sm:text-lg font-bold">{score.toLocaleString()}</span>
               </div>
             </div>
 
             <div className="flex flex-col items-end gap-2">
-              <div className="bg-black/40 backdrop-blur-md border border-white/10 px-4 py-2 rounded-xl">
-                <span className="text-xs uppercase tracking-widest text-white/50 font-semibold">
+              <div className="bg-black/40 backdrop-blur-md border border-white/10 px-2 py-1 sm:px-4 sm:py-2 rounded-lg sm:rounded-xl">
+                <span className="text-[9px] sm:text-xs uppercase tracking-widest text-white/50 font-semibold">
                   {gameMode === 'campaign' ? 'Mission' : gameMode === 'zen' ? 'Wave' : 'Level'}
                 </span>
-                <div className="font-mono text-2xl font-bold text-center">{level}</div>
+                <div className="font-mono text-lg sm:text-2xl font-bold text-center">{level}</div>
               </div>
 
               {/* Time Attack: countdown timer */}
               {gameMode === 'time_attack' && (
-                <div className={`bg-black/40 backdrop-blur-md border px-4 py-2 rounded-xl ${
+                <div className={`bg-black/40 backdrop-blur-md border px-2 py-1 sm:px-4 sm:py-2 rounded-lg sm:rounded-xl ${
                   timeAttackTimer <= 10 ? 'border-red-500/50 animate-pulse' : 'border-yellow-500/30'
                 }`}>
-                  <span className="text-xs uppercase tracking-widest text-yellow-400/60 font-semibold">Time</span>
-                  <div className={`font-mono text-2xl font-bold text-center ${
+                  <span className="text-[9px] sm:text-xs uppercase tracking-widest text-yellow-400/60 font-semibold">Time</span>
+                  <div className={`font-mono text-lg sm:text-2xl font-bold text-center ${
                     timeAttackTimer <= 10 ? 'text-red-400' : 'text-yellow-400'
                   }`}>{timeAttackTimer}s</div>
                 </div>
@@ -1305,9 +1305,9 @@ export default function Game() {
 
               {/* Campaign: objective */}
               {gameMode === 'campaign' && campaignLevelRef.current?.objectiveText && (
-                <div className="bg-black/40 backdrop-blur-md border border-blue-500/20 px-3 py-1.5 rounded-xl max-w-[200px]">
-                  <span className="text-[10px] uppercase tracking-widest text-blue-400/60">Objective</span>
-                  <div className="font-mono text-[11px] text-blue-300">{campaignLevelRef.current.objectiveText}</div>
+                <div className="bg-black/40 backdrop-blur-md border border-blue-500/20 px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg sm:rounded-xl max-w-[140px] sm:max-w-[200px]">
+                  <span className="text-[8px] sm:text-[10px] uppercase tracking-widest text-blue-400/60">Objective</span>
+                  <div className="font-mono text-[9px] sm:text-[11px] text-blue-300">{campaignLevelRef.current.objectiveText}</div>
                 </div>
               )}
 
@@ -1332,7 +1332,7 @@ export default function Game() {
             className="absolute inset-0 pointer-events-none z-20"
           >
             {/* Virtual Joystick (Left) */}
-            <div className="absolute bottom-16 left-16 w-32 h-32 bg-white/5 backdrop-blur-sm border border-white/10 rounded-full pointer-events-auto touch-none"
+            <div className="absolute bottom-8 left-4 sm:bottom-16 sm:left-16 w-24 h-24 sm:w-32 sm:h-32 bg-white/5 backdrop-blur-sm border border-white/10 rounded-full pointer-events-auto touch-none"
               onPointerDown={(e) => {
                 const rect = e.currentTarget.getBoundingClientRect();
                 const centerX = rect.left + rect.width / 2;
@@ -1374,13 +1374,13 @@ export default function Game() {
             </div>
 
             {/* Large Fire Button (Right) */}
-            <div className="absolute bottom-16 right-16 pointer-events-auto">
+            <div className="absolute bottom-8 right-4 sm:bottom-16 sm:right-16 pointer-events-auto">
               <button
                 aria-label="Fire antibodies"
                 onPointerDown={() => { virtualControlsRef.current.fire = true; }}
                 onPointerUp={() => { virtualControlsRef.current.fire = false; }}
                 onPointerLeave={() => { virtualControlsRef.current.fire = false; }}
-                className="w-24 h-24 bg-emerald-500/20 backdrop-blur-md border border-emerald-500/40 rounded-full flex items-center justify-center active:bg-emerald-500/40 shadow-lg shadow-emerald-500/20 touch-none"
+                className="w-20 h-20 sm:w-24 sm:h-24 bg-emerald-500/20 backdrop-blur-md border border-emerald-500/40 rounded-full flex items-center justify-center active:bg-emerald-500/40 shadow-lg shadow-emerald-500/20 touch-none"
               >
                 <Zap className="w-10 h-10 text-emerald-400" />
               </button>
@@ -1390,7 +1390,7 @@ export default function Game() {
             <button
               aria-label="Pause game"
               onClick={() => setIsPaused(true)}
-              className="absolute top-6 right-24 p-3 bg-white/10 backdrop-blur-md border border-white/20 rounded-xl pointer-events-auto active:bg-white/30"
+              className="absolute top-2 right-20 sm:top-6 sm:right-24 p-2 sm:p-3 bg-white/10 backdrop-blur-md border border-white/20 rounded-lg sm:rounded-xl pointer-events-auto active:bg-white/30"
             >
               <Activity className="w-5 h-5" />
             </button>
@@ -1404,11 +1404,11 @@ export default function Game() {
             exit={{ opacity: 0 }}
             className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-md z-30"
           >
-            <div className="text-center space-y-6">
-              <h2 className="text-4xl font-black italic uppercase tracking-widest">Protocol Paused</h2>
+            <div className="text-center space-y-4 sm:space-y-6 px-4">
+              <h2 className="text-2xl sm:text-4xl font-black italic uppercase tracking-widest">Protocol Paused</h2>
               <button
                 onClick={() => setIsPaused(false)}
-                className="px-8 py-3 bg-white text-black font-bold rounded-xl hover:bg-emerald-400 transition-colors"
+                className="px-6 sm:px-8 py-2.5 sm:py-3 bg-white text-black font-bold rounded-xl hover:bg-emerald-400 transition-colors"
               >
                 RESUME
               </button>
@@ -1460,7 +1460,7 @@ export default function Game() {
                 : 'bg-red-950/40'
             }`}
           >
-            <div className={`max-w-md w-full p-12 text-center space-y-8 bg-black/80 rounded-[40px] shadow-2xl ${
+            <div className={`max-w-md w-full mx-3 p-5 sm:p-8 md:p-12 text-center space-y-4 sm:space-y-6 md:space-y-8 bg-black/80 rounded-2xl sm:rounded-[40px] shadow-2xl max-h-[95vh] overflow-y-auto ${
               gameMode === 'campaign' && campaignLevelIdx >= CAMPAIGN_LEVELS.length - 1
                 ? 'border border-emerald-500/30 shadow-emerald-500/20'
                 : gameMode === 'zen' ? 'border border-purple-500/30 shadow-purple-500/20'
@@ -1470,22 +1470,22 @@ export default function Game() {
               <div className="space-y-2">
                 {gameMode === 'campaign' && campaignLevelIdx >= CAMPAIGN_LEVELS.length - 1 ? (
                   <>
-                    <h2 className="text-4xl font-black text-emerald-400 italic uppercase">Host Saved!</h2>
+                    <h2 className="text-2xl sm:text-4xl font-black text-emerald-400 italic uppercase">Host Saved!</h2>
                     <p className="text-white/60 font-mono text-sm">All 20 campaign levels completed. The immune system prevails.</p>
                   </>
                 ) : gameMode === 'time_attack' ? (
                   <>
-                    <h2 className="text-5xl font-black text-yellow-400 italic uppercase">Time&apos;s Up!</h2>
+                    <h2 className="text-3xl sm:text-5xl font-black text-yellow-400 italic uppercase">Time&apos;s Up!</h2>
                     <p className="text-white/60 font-mono text-sm">The clock has run out.</p>
                   </>
                 ) : gameMode === 'zen' ? (
                   <>
-                    <h2 className="text-4xl font-black text-purple-400 italic uppercase">Session Complete</h2>
+                    <h2 className="text-2xl sm:text-4xl font-black text-purple-400 italic uppercase">Session Complete</h2>
                     <p className="text-white/60 font-mono text-sm">A peaceful patrol through the bloodstream.</p>
                   </>
                 ) : (
                   <>
-                    <h2 className="text-5xl font-black text-red-500 italic uppercase">System Failure</h2>
+                    <h2 className="text-3xl sm:text-5xl font-black text-red-500 italic uppercase">System Failure</h2>
                     <p className="text-white/60 font-mono text-sm">The pathogens have overwhelmed the host.</p>
                   </>
                 )}
@@ -1494,7 +1494,7 @@ export default function Game() {
               <div className="py-6 border-y border-white/10 space-y-4">
                 <div>
                   <div className="text-xs uppercase text-white/40 mb-2 tracking-widest">Final Score</div>
-                  <div className="text-6xl font-mono font-bold">{score.toLocaleString()}</div>
+                  <div className="text-3xl sm:text-5xl md:text-6xl font-mono font-bold">{score.toLocaleString()}</div>
                   {lastScoreRank !== null && lastScoreRank < 3 && (
                     <div className="text-emerald-400 font-mono text-sm mt-1">
                       {lastScoreRank === 0 ? 'NEW #1 RECORD!' : `#${lastScoreRank + 1} ALL TIME`}
@@ -1505,7 +1505,7 @@ export default function Game() {
                 {gameMode !== 'zen' && (
                   <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-3">
                     <div className="text-[10px] uppercase text-yellow-400/60 tracking-widest">XP Earned</div>
-                    <div className="font-mono text-2xl font-bold text-yellow-400">+{score.toLocaleString()}</div>
+                    <div className="font-mono text-xl sm:text-2xl font-bold text-yellow-400">+{score.toLocaleString()}</div>
                     <div className="text-[10px] text-white/30 mt-1">Kills: {runKillsRef.current} · Level reached: {level}</div>
                   </div>
                 )}
