@@ -8,6 +8,8 @@ export * from './constants';
 export * from './physics';
 export * from './scores';
 export { render } from './renderer';
+export { snapshotPositions, PositionInterpolator, lerpAngle, compactInPlace, MAX_INTERP_JUMP } from './interpolation';
+export type { Interpolatable } from './interpolation';
 export type { RenderState, RenderQuality } from './renderer';
 export { AudioEngine, haptic, HAPTIC_DAMAGE, HAPTIC_POWERUP, HAPTIC_BOMB, HAPTIC_FIRE } from './audio';
 export type { AudioSettings } from './audio';

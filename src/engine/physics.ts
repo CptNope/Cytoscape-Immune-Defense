@@ -28,12 +28,12 @@ export const wrapPosition = (
   if (pos.y > height + margin) pos.y = -margin;
 };
 
-export const applyVelocity = (entity: Entity): void => {
+export const applyVelocity = (entity: Pick<Entity, 'pos' | 'vel'>): void => {
   entity.pos.x += entity.vel.x;
   entity.pos.y += entity.vel.y;
 };
 
-export const applyFriction = (entity: Entity, friction: number): void => {
+export const applyFriction = (entity: Pick<Entity, 'pos' | 'vel'>, friction: number): void => {
   entity.vel.x *= friction;
   entity.vel.y *= friction;
 };
