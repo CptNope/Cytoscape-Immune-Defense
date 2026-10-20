@@ -2,7 +2,7 @@
 
 This document outlines planned features and expansion ideas for the game, organized by release version.
 
-> **Version history:** v1.0 initial release → v1.1 PWA & scores → v1.2 engine refactor & tests → v1.3 audio & feedback → v1.4 progression & unlockables → v1.5 new enemies & bosses → v1.6 game modes → v1.7 visual polish → v1.8 responsive design → v1.9 mobile gameplay fixes
+> **Version history:** v1.0 initial release → v1.1 PWA & scores → v1.2 engine refactor & tests → v1.3 audio & feedback → v1.4 progression & unlockables → v1.5 new enemies & bosses → v1.6 game modes → v1.7 visual polish → v1.8 responsive design → v1.9 mobile gameplay fixes → v1.10 mobile performance & controls → v1.11 smooth motion & CI → v2.0 Immune Response update
 
 ---
 
@@ -56,7 +56,7 @@ This document outlines planned features and expansion ideas for the game, organi
 - [x] Trail effects for swift variant pathogens and prions
 - [x] Entity type labels on all game objects (pathogens, bosses, power-ups, ship)
 - [x] Power-up labels showing pickup name
-- [ ] Pathogen death animations — disintegration, cell lysis effects
+- [x] Pathogen death animations — cell lysis rings (v2.0)
 - [ ] Level transition animation — "immune response escalating" screen
 - [ ] Dark/light theme toggle (microscope slide vs dark field)
 
@@ -73,7 +73,19 @@ This document outlines planned features and expansion ideas for the game, organi
 - [x] Mobile controls — repositioned and resized for small screens
 - [x] iOS safe-area insets respected on notched devices
 
-## v2.0 — Multiplayer & Social
+## v2.0 — Immune Response ✅
+
+- [x] Enemy projectiles, hazards, telegraphs and status effects (infected, slowed)
+- [x] Reworked bosses with attacks and phases; five new bosses (Plasmodium, Retrovirus, Influenza, Metastatic Tumor, Autoimmune T-Cell)
+- [x] Endless boss rotation every 5 levels with scaling loops
+- [x] Campaign Act II (missions 21–30), star ratings, level select
+- [x] Antibody classes, playable cell types with abilities, cytokine loadout
+- [x] Clonal selection mutations between waves, immune memory
+- [x] Upgrade tiers 6–10, respec, cosmetic membranes
+- [x] Pathogen codex with real biology
+- [x] First-run tutorial, colorblind palette
+
+## v2.1 — Multiplayer & Social
 
 - [ ] **Online leaderboard** — global high scores via serverless API (Cloudflare Workers or Supabase)
 - [ ] **Daily challenges** — unique seed-based runs with shared leaderboard
@@ -81,9 +93,9 @@ This document outlines planned features and expansion ideas for the game, organi
 - [ ] Share score card — generate shareable image with score, level, and stats
 - [ ] Achievement system with badges
 
-## v2.1 — Accessibility & Platform
+## v2.2 — Accessibility & Platform
 
-- [ ] Colorblind mode — distinct shapes/patterns per pathogen type instead of color-only
+- [x] Colorblind mode — Okabe–Ito palette; every entity also has a shape and label (v2.0)
 - [ ] Reduced motion mode — disable particles, screen shake, scanlines
 - [ ] Keyboard remapping
 - [ ] Gamepad support (Gamepad API)

@@ -28,3 +28,17 @@ html, body {
   transform: scale(0.92);
   background-color: rgb(16 185 129 / 0.4);
 }
+
+/* Ability cooldown ring: --cd is written by the game loop (0deg → 360deg = ready) */
+.ability-btn, .ability-chip {
+  --cd: 360deg;
+  background:
+    conic-gradient(rgb(255 255 255 / 0.22) var(--cd), rgb(0 0 0 / 0.45) 0);
+  transition: opacity 120ms;
+}
+.ability-btn[data-ready="1"], .ability-chip[data-ready="1"] {
+  box-shadow: 0 0 14px rgb(255 255 255 / 0.25);
+}
+.ability-btn[data-ready="0"], .ability-chip[data-ready="0"] {
+  opacity: 0.7;
+}

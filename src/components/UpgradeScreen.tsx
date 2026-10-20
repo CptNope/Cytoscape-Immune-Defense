@@ -4,11 +4,15 @@
  */
 
 import { motion } from 'motion/react';
-import { Play, ChevronUp, Lock, Sparkles } from 'lucide-react';
+import { Play, ChevronUp, RotateCcw, BookOpen, Dna } from 'lucide-react';
 import type { PlayerProfile } from '../engine';
 import {
   UPGRADE_DEFS,
   CYTOKINE_DEFS,
+  getCellType,
+  activeCytokines,
+  respecUpgrades,
+  upgradeSpent,
   canAffordUpgrade,
   purchaseUpgrade,
   getUpgradeCost,
@@ -22,9 +26,24 @@ interface UpgradeScreenProps {
   onProfileChange: (p: PlayerProfile) => void;
   onPlay: () => void;
   onShowStats: () => void;
+  onShowLoadout: () => void;
+  onShowCodex: () => void;
+  colorblind: boolean;
+  onColorblindChange: (on: boolean) => void;
+  onReplayTutorial: () => void;
 }
 
-export default function UpgradeScreen({ profile, onProfileChange, onPlay, onShowStats }: UpgradeScreenProps) {
+export default function UpgradeScreen({
+  profile, onProfileChange, onPlay, onShowStats, onShowLoadout, onShowCodex,
+  colorblind, onColorblindChange, onReplayTutorial,
+}: UpgradeScreenProps) {
+  const spent = UPGRADE_DEFS.reduce((sum, d) => sum + upgradeSpent(profile, d.id), 0);
+  const cell = getCellType(profile.cellType);
+  const equipped = activeCytokines(profile);
+  const handleRespec = () => {
+    if (spent === 0) return;
+    if (window.confirm(`Refund all upgrades for ${spent.toLocaleString()} XP?`)) onProfileChange(respecUpgrades(profile));
+  };
   const handlePurchase = (id: Parameters<typeof purchaseUpgrade>[1]) => {
     const updated = purchaseUpgrade(profile, id);
     if (updated) onProfileChange(updated);
@@ -82,7 +101,14 @@ export default function UpgradeScreen({ profile, onProfileChange, onPlay, onShow
 
         {/* Upgrade Tree */}
         <div className="space-y-2">
-          <h2 className="text-xs uppercase text-white/40 tracking-widest text-center">Ship Upgrades</h2>
+          <div className="flex items-center justify-center gap-3">
+            <h2 className="text-xs uppercase text-white/40 tracking-widest text-center">Cell Upgrades</h2>
+            {spent > 0 && (
+              <button onClick={handleRespec} className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-white/40 hover:text-white border border-white/10 rounded-full px-2 py-0.5">
+                <RotateCcw className="w-3 h-3" /> Respec
+              </button>
+            )}
+          </div>
           <div className="grid gap-2">
             {UPGRADE_DEFS.map(def => {
               const lvl = profile.upgrades[def.id];
@@ -105,7 +131,7 @@ export default function UpgradeScreen({ profile, onProfileChange, onPlay, onShow
                         {Array.from({ length: def.maxLevel }, (_, i) => (
                           <div
                             key={i}
-                            className={`w-2 h-2 rounded-full ${
+                            className={`w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full ${
                               i < lvl ? 'bg-emerald-400' : 'bg-white/10'
                             }`}
                           />
@@ -137,47 +163,40 @@ export default function UpgradeScreen({ profile, onProfileChange, onPlay, onShow
           </div>
         </div>
 
-        {/* Cytokine Signals */}
-        <div className="space-y-2">
-          <h2 className="text-xs uppercase text-white/40 tracking-widest text-center">Cytokine Signals</h2>
-          <div className="grid gap-2">
-            {CYTOKINE_DEFS.map(def => {
-              const unlocked = profile.cytokines[def.id];
-              return (
-                <div
-                  key={def.id}
-                  className={`flex items-center gap-3 bg-white/5 border rounded-xl p-3 ${
-                    unlocked ? 'border-purple-500/20' : 'border-white/10 opacity-50'
-                  }`}
-                >
-                  <span className="text-2xl w-10 text-center">{unlocked ? def.icon : '🔒'}</span>
-                  <div className="flex-1">
-                    <span className="font-bold text-sm">{def.name}</span>
-                    <p className="text-[11px] text-white/40">{def.description}</p>
-                  </div>
-                  {unlocked ? (
-                    <span className="flex items-center gap-1 text-[10px] uppercase text-purple-400 font-bold tracking-wider">
-                      <Sparkles className="w-3 h-3" /> ACTIVE
-                    </span>
-                  ) : (
-                    <span className="flex items-center gap-1 text-[10px] uppercase text-white/20 font-bold tracking-wider">
-                      <Lock className="w-3 h-3" /> Lv.{def.unlockPlayerLevel}
-                    </span>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
+        {/* Loadout summary */}
+        <button
+          onClick={onShowLoadout}
+          className="w-full flex items-center gap-3 bg-white/5 border border-white/10 hover:border-white/25 rounded-xl p-3 text-left"
+        >
+          <Dna className="w-6 h-6 text-purple-300 shrink-0" />
+          <span className="flex-1 min-w-0">
+            <span className="block text-xs uppercase tracking-widest text-white/40">Loadout</span>
+            <span className="block text-sm font-bold" style={{ color: cell.color }}>{cell.name}</span>
+            <span className="block text-[11px] text-white/50 truncate">
+              {equipped.length > 0
+                ? equipped.map(id => CYTOKINE_DEFS.find(c => c.id === id)?.icon + ' ' + CYTOKINE_DEFS.find(c => c.id === id)?.name).join(' · ')
+                : 'No cytokines equipped'}
+            </span>
+          </span>
+          <span className="text-[10px] uppercase tracking-wider text-white/40">Edit ›</span>
+        </button>
 
         {/* Actions */}
-        <div className="flex gap-2 sm:gap-3 pb-4">
-          <button
-            onClick={onShowStats}
-            className="flex-1 py-2.5 sm:py-3 bg-white/5 border border-white/10 text-white/60 font-bold rounded-xl sm:rounded-2xl hover:bg-white/10 transition-colors text-sm sm:text-base"
-          >
-            STATS
-          </button>
+        <div className="flex gap-2 sm:gap-3">
+          <div className="flex-1 flex flex-col gap-2">
+            <button
+              onClick={onShowStats}
+              className="flex-1 py-2 bg-white/5 border border-white/10 text-white/60 font-bold rounded-xl hover:bg-white/10 transition-colors text-xs sm:text-sm"
+            >
+              STATS
+            </button>
+            <button
+              onClick={onShowCodex}
+              className="flex-1 flex items-center justify-center gap-1 py-2 bg-white/5 border border-white/10 text-white/60 font-bold rounded-xl hover:bg-white/10 transition-colors text-xs sm:text-sm"
+            >
+              <BookOpen className="w-3.5 h-3.5" /> CODEX
+            </button>
+          </div>
           <button
             onClick={onPlay}
             className="group relative flex-[2] py-3 sm:py-4 bg-white text-black font-bold rounded-xl sm:rounded-2xl overflow-hidden transition-transform active:scale-95"
@@ -187,6 +206,22 @@ export default function UpgradeScreen({ profile, onProfileChange, onPlay, onShow
               <Play className="w-5 h-5 fill-current" />
               INITIALIZE DEFENSE
             </span>
+          </button>
+        </div>
+
+        {/* Settings */}
+        <div className="flex flex-wrap items-center justify-center gap-4 pb-6 text-[11px] text-white/45">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={colorblind}
+              onChange={e => onColorblindChange(e.target.checked)}
+              className="accent-emerald-500"
+            />
+            Colorblind-friendly colors
+          </label>
+          <button onClick={onReplayTutorial} className="underline underline-offset-2 hover:text-white">
+            Replay tutorial next run
           </button>
         </div>
       </div>

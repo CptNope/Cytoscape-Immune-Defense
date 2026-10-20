@@ -9,7 +9,9 @@ import type {
   GameModifiers,
   UpgradeId,
   CytokineId,
+  CellTypeId,
 } from './types';
+import { getCellType, isCellUnlocked } from './cells';
 
 import {
   UPGRADE_DEFS,
@@ -18,11 +20,9 @@ import {
   MAX_PLAYER_LEVEL,
   SHIP_THRUST,
   POWERUP_DURATION,
-  HULL_HP_PER_LEVEL,
-  THRUST_PER_LEVEL,
-  DAMAGE_PER_LEVEL,
-  SHOT_DELAY_REDUCTION_PER_LEVEL,
-  SHIELD_FRAMES_PER_LEVEL,
+  CYTOKINE_SLOTS,
+  MEMBRANE_COSMETICS,
+  upgradeTotal,
 } from './constants';
 
 const PROFILE_KEY = 'cytoscape-player-profile';
@@ -37,6 +37,7 @@ function defaultStats(): PlayerStats {
     totalRuns: 0,
     totalTimePlayed: 0,
     highestLevel: 0,
+    bossKills: {},
   };
 }
 
@@ -56,9 +57,22 @@ function defaultProfile(): PlayerProfile {
       auto_target: false,
       regeneration: false,
       chain_reaction: false,
+      interferon: false,
+      fever: false,
     },
+    equippedCytokines: [],
+    cellType: 'killer_t',
+    cosmetics: { owned: ['default'], equipped: 'default' },
     stats: defaultStats(),
   };
+}
+
+/** Cytokines that are actually active: the equipped ones that are unlocked. */
+export function activeCytokines(profile: PlayerProfile): CytokineId[] {
+  const unlocked = (Object.keys(profile.cytokines) as CytokineId[]).filter(id => profile.cytokines[id]);
+  // Older saves (before the loadout existed) have no equipped list: use the first unlocked ones
+  const equipped = profile.equippedCytokines ?? unlocked.slice(0, CYTOKINE_SLOTS);
+  return equipped.filter(id => profile.cytokines[id]).slice(0, CYTOKINE_SLOTS);
 }
 
 // --- Persistence ---
@@ -70,13 +84,20 @@ export function loadProfile(): PlayerProfile {
     const parsed = JSON.parse(raw);
     // Merge with defaults to handle missing fields from older saves
     const def = defaultProfile();
-    return {
+    const merged: PlayerProfile = {
       ...def,
       ...parsed,
       upgrades: { ...def.upgrades, ...parsed.upgrades },
       cytokines: { ...def.cytokines, ...parsed.cytokines },
-      stats: { ...def.stats, ...parsed.stats },
+      cosmetics: { ...def.cosmetics, ...parsed.cosmetics },
+      stats: { ...def.stats, ...parsed.stats, bossKills: { ...def.stats.bossKills, ...parsed.stats?.bossKills } },
     };
+    if (!Array.isArray(parsed.equippedCytokines)) {
+      // Migrate pre-loadout saves: keep the first unlocked cytokines equipped
+      merged.equippedCytokines = activeCytokines({ ...merged, equippedCytokines: undefined as unknown as CytokineId[] });
+    }
+    if (!isCellUnlocked(merged.cellType, merged.playerLevel)) merged.cellType = 'killer_t';
+    return merged;
   } catch {
     return defaultProfile();
   }
@@ -121,12 +142,17 @@ export function awardXp(profile: PlayerProfile, runScore: number): PlayerProfile
   updated.lifetimeXp += runScore;
   updated.playerLevel = calcPlayerLevel(updated.lifetimeXp);
 
-  // Auto-unlock cytokines when player level thresholds are met
+  // Auto-unlock cytokines when player level thresholds are met, and equip
+  // newly unlocked ones while there's a free slot
+  updated.cytokines = { ...updated.cytokines };
+  const equipped = [...(updated.equippedCytokines ?? activeCytokines(updated))];
   CYTOKINE_DEFS.forEach(def => {
     if (updated.playerLevel >= def.unlockPlayerLevel && !updated.cytokines[def.id]) {
       updated.cytokines[def.id] = true;
+      if (equipped.length < CYTOKINE_SLOTS && !equipped.includes(def.id)) equipped.push(def.id);
     }
   });
+  updated.equippedCytokines = equipped;
 
   saveProfile(updated);
   return updated;
@@ -134,7 +160,10 @@ export function awardXp(profile: PlayerProfile, runScore: number): PlayerProfile
 
 export function recordRunStats(
   profile: PlayerProfile,
-  runStats: { kills: number; killsByType: Record<string, number>; score: number; level: number; timePlayed: number }
+  runStats: {
+    kills: number; killsByType: Record<string, number>; score: number; level: number; timePlayed: number;
+    bossKills?: Record<string, number>;
+  }
 ): PlayerProfile {
   const updated = { ...profile, stats: { ...profile.stats } };
   updated.stats.totalKills += runStats.kills;
@@ -151,6 +180,12 @@ export function recordRunStats(
     kbt[type] = (kbt[type] || 0) + count;
   }
   updated.stats.killsByType = kbt;
+
+  const bk = { ...(updated.stats.bossKills ?? {}) };
+  for (const [type, count] of Object.entries(runStats.bossKills ?? {})) {
+    bk[type] = (bk[type] || 0) + count;
+  }
+  updated.stats.bossKills = bk;
 
   saveProfile(updated);
   return updated;
@@ -191,18 +226,90 @@ export function getUpgradeCost(profile: PlayerProfile, upgradeId: UpgradeId): nu
   return def.costs[currentLevel];
 }
 
+// --- Respec ---
+
+/** Total XP spent on an upgrade's purchased levels. */
+export function upgradeSpent(profile: PlayerProfile, upgradeId: UpgradeId): number {
+  const def = UPGRADE_DEFS.find(u => u.id === upgradeId);
+  if (!def) return 0;
+  return def.costs.slice(0, profile.upgrades[upgradeId]).reduce((a, c) => a + c, 0);
+}
+
+/** Refund every purchased upgrade level in full. */
+export function respecUpgrades(profile: PlayerProfile): PlayerProfile {
+  const refund = UPGRADE_DEFS.reduce((sum, d) => sum + upgradeSpent(profile, d.id), 0);
+  const upgrades = { ...profile.upgrades };
+  UPGRADE_DEFS.forEach(d => { upgrades[d.id] = 0; });
+  const updated = { ...profile, xp: profile.xp + refund, upgrades };
+  saveProfile(updated);
+  return updated;
+}
+
+// --- Loadout ---
+
+export function setCellType(profile: PlayerProfile, id: CellTypeId): PlayerProfile | null {
+  if (!isCellUnlocked(id, profile.playerLevel)) return null;
+  const updated = { ...profile, cellType: id };
+  saveProfile(updated);
+  return updated;
+}
+
+/** Equip or unequip a cytokine. Returns null if locked or no free slot. */
+export function toggleCytokine(profile: PlayerProfile, id: CytokineId): PlayerProfile | null {
+  if (!profile.cytokines[id]) return null;
+  const current = activeCytokines(profile);
+  let next: CytokineId[];
+  if (current.includes(id)) next = current.filter(c => c !== id);
+  else if (current.length < CYTOKINE_SLOTS) next = [...current, id];
+  else return null;
+  const updated = { ...profile, equippedCytokines: next };
+  saveProfile(updated);
+  return updated;
+}
+
+// --- Cosmetics ---
+
+export function buyCosmetic(profile: PlayerProfile, id: string): PlayerProfile | null {
+  const def = MEMBRANE_COSMETICS.find(c => c.id === id);
+  if (!def || profile.cosmetics.owned.includes(id) || profile.xp < def.cost) return null;
+  const updated = {
+    ...profile,
+    xp: profile.xp - def.cost,
+    cosmetics: { owned: [...profile.cosmetics.owned, id], equipped: id },
+  };
+  saveProfile(updated);
+  return updated;
+}
+
+export function equipCosmetic(profile: PlayerProfile, id: string): PlayerProfile | null {
+  if (!profile.cosmetics.owned.includes(id)) return null;
+  const updated = { ...profile, cosmetics: { ...profile.cosmetics, equipped: id } };
+  saveProfile(updated);
+  return updated;
+}
+
 // --- Game Modifiers (computed from profile) ---
 
 export function computeModifiers(profile: PlayerProfile): GameModifiers {
+  const def = (id: UpgradeId) => UPGRADE_DEFS.find(u => u.id === id)!;
+  const lvl = (id: UpgradeId) => profile.upgrades[id] ?? 0;
+  const cell = getCellType(isCellUnlocked(profile.cellType ?? 'killer_t', profile.playerLevel) ? profile.cellType : 'killer_t');
+  const active = activeCytokines(profile);
+  const membrane = MEMBRANE_COSMETICS.find(c => c.id === profile.cosmetics?.equipped)?.color ?? '#ffffff';
   return {
-    maxHealth: 100 + profile.upgrades.hull_integrity * HULL_HP_PER_LEVEL,
-    thrustPower: SHIP_THRUST + profile.upgrades.thruster_power * THRUST_PER_LEVEL,
-    bulletDamage: 1 + profile.upgrades.antibody_potency * DAMAGE_PER_LEVEL,
-    shotDelay: 200 - profile.upgrades.rapid_response * SHOT_DELAY_REDUCTION_PER_LEVEL,
-    shieldDuration: POWERUP_DURATION + profile.upgrades.membrane_shield * SHIELD_FRAMES_PER_LEVEL,
-    hasAutoTarget: profile.cytokines.auto_target,
-    hasRegeneration: profile.cytokines.regeneration,
-    hasChainReaction: profile.cytokines.chain_reaction,
+    maxHealth: Math.round((100 + upgradeTotal(def('hull_integrity'), lvl('hull_integrity'))) * cell.healthMult),
+    thrustPower: (SHIP_THRUST + upgradeTotal(def('thruster_power'), lvl('thruster_power'))) * cell.thrustMult,
+    bulletDamage: (1 + upgradeTotal(def('antibody_potency'), lvl('antibody_potency'))) * cell.damageMult,
+    shotDelay: (200 - upgradeTotal(def('rapid_response'), lvl('rapid_response'))) * cell.fireDelayMult,
+    shieldDuration: POWERUP_DURATION + upgradeTotal(def('membrane_shield'), lvl('membrane_shield')),
+    hasAutoTarget: active.includes('auto_target'),
+    hasRegeneration: active.includes('regeneration'),
+    hasChainReaction: active.includes('chain_reaction'),
+    hasInterferon: active.includes('interferon'),
+    hasFever: active.includes('fever'),
+    shipRadius: cell.radius,
+    cellType: cell.id,
+    membraneColor: membrane,
   };
 }
 

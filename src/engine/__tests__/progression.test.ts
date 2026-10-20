@@ -12,6 +12,12 @@ import {
   getUpgradeCost,
   computeModifiers,
   resetProfile,
+  activeCytokines,
+  toggleCytokine,
+  respecUpgrades,
+  setCellType,
+  buyCosmetic,
+  equipCosmetic,
 } from '../progression';
 import type { PlayerProfile } from '../types';
 import {
@@ -280,7 +286,7 @@ describe('upgrades', () => {
   it('canAffordUpgrade returns false when maxed', () => {
     const p = freshProfile();
     p.xp = 99999;
-    p.upgrades.hull_integrity = 5;
+    p.upgrades.hull_integrity = 10;
     expect(canAffordUpgrade(p, 'hull_integrity')).toBe(false);
   });
 
@@ -302,7 +308,7 @@ describe('upgrades', () => {
   it('purchaseUpgrade returns null when maxed', () => {
     const p = freshProfile();
     p.xp = 99999;
-    p.upgrades.hull_integrity = 5;
+    p.upgrades.hull_integrity = 10;
     expect(purchaseUpgrade(p, 'hull_integrity')).toBeNull();
   });
 
@@ -315,7 +321,7 @@ describe('upgrades', () => {
 
   it('getUpgradeCost returns null when maxed', () => {
     const p = freshProfile();
-    p.upgrades.hull_integrity = 5;
+    p.upgrades.hull_integrity = 10;
     expect(getUpgradeCost(p, 'hull_integrity')).toBeNull();
   });
 });
@@ -378,5 +384,107 @@ describe('resetProfile', () => {
   it('persists the reset to localStorage', () => {
     resetProfile();
     expect(localStorageMock.setItem).toHaveBeenCalled();
+  });
+});
+
+// --- Upgrade tiers 6-10 ---
+
+describe('upgrade tiers', () => {
+  it('upgrades now go to level 10 with diminishing returns', () => {
+    const p = freshProfile();
+    p.upgrades.rapid_response = 10;
+    p.upgrades.antibody_potency = 10;
+    const m = computeModifiers(p);
+    expect(m.shotDelay).toBe(200 - 5 * 15 - 5 * 6);
+    expect(m.bulletDamage).toBeCloseTo(1 + 5 * 0.25 + 5 * 0.15);
+  });
+
+  it('level 5 is no longer max', () => {
+    const p = freshProfile();
+    p.xp = 99999;
+    p.upgrades.hull_integrity = 5;
+    expect(canAffordUpgrade(p, 'hull_integrity')).toBe(true);
+  });
+});
+
+describe('respec', () => {
+  it('refunds every purchased level', () => {
+    const p = freshProfile();
+    p.upgrades.hull_integrity = 2; // 100 + 250
+    p.upgrades.membrane_shield = 1; // 200
+    const r = respecUpgrades(p);
+    expect(r.xp).toBe(550);
+    expect(r.upgrades.hull_integrity).toBe(0);
+    expect(r.upgrades.membrane_shield).toBe(0);
+  });
+});
+
+describe('cytokine loadout', () => {
+  it('older saves without a loadout use the first unlocked cytokines', () => {
+    const p = freshProfile();
+    p.cytokines.auto_target = true;
+    p.cytokines.regeneration = true;
+    p.cytokines.chain_reaction = true;
+    expect(activeCytokines(p)).toEqual(['auto_target', 'regeneration']);
+  });
+
+  it('migrates on load', () => {
+    const old = { ...freshProfile(), cytokines: { auto_target: true, regeneration: true, chain_reaction: true } };
+    localStorageMock.setItem('cytoscape-player-profile', JSON.stringify(old));
+    const p = loadProfile();
+    expect(p.equippedCytokines).toEqual(['auto_target', 'regeneration']);
+    expect(p.cytokines.fever).toBe(false);
+    expect(p.cellType).toBe('killer_t');
+    expect(p.stats.bossKills).toEqual({});
+  });
+
+  it('equips up to 2 and unequips', () => {
+    let p: PlayerProfile = { ...freshProfile(), equippedCytokines: [] };
+    p.cytokines.auto_target = true;
+    p.cytokines.regeneration = true;
+    p.cytokines.chain_reaction = true;
+    p = toggleCytokine(p, 'chain_reaction')!;
+    p = toggleCytokine(p, 'auto_target')!;
+    expect(toggleCytokine(p, 'regeneration')).toBeNull(); // slots full
+    p = toggleCytokine(p, 'auto_target')!;
+    expect(p.equippedCytokines).toEqual(['chain_reaction']);
+    const m = computeModifiers(p);
+    expect(m.hasChainReaction).toBe(true);
+    expect(m.hasAutoTarget).toBe(false);
+  });
+
+  it('cannot equip a locked cytokine', () => {
+    expect(toggleCytokine({ ...freshProfile(), equippedCytokines: [] }, 'fever')).toBeNull();
+  });
+
+  it('auto-equips newly unlocked cytokines while there is room', () => {
+    const p = awardXp({ ...freshProfile(), equippedCytokines: [] }, 20000);
+    expect(p.equippedCytokines.length).toBe(2);
+    expect(p.cytokines.regeneration).toBe(true);
+  });
+});
+
+describe('cell types', () => {
+  it('only allows unlocked cells', () => {
+    const p = freshProfile();
+    expect(setCellType(p, 'macrophage')).toBeNull();
+    const lvl = { ...p, playerLevel: 4 };
+    const r = setCellType(lvl, 'macrophage')!;
+    expect(r.cellType).toBe('macrophage');
+    const m = computeModifiers(r);
+    expect(m.maxHealth).toBe(150);
+    expect(m.shipRadius).toBe(22);
+  });
+});
+
+describe('cosmetics', () => {
+  it('buys and equips membrane colours', () => {
+    const p = { ...freshProfile(), xp: 2500, cosmetics: { owned: ['default'], equipped: 'default' } };
+    const r = buyCosmetic(p, 'cyan')!;
+    expect(r.xp).toBe(500);
+    expect(r.cosmetics.equipped).toBe('cyan');
+    expect(buyCosmetic(r, 'gold')).toBeNull(); // too expensive
+    expect(equipCosmetic(r, 'default')!.cosmetics.equipped).toBe('default');
+    expect(computeModifiers(r).membraneColor).toBe('#22d3ee');
   });
 });
