@@ -10,6 +10,21 @@ body {
   @apply bg-[#0a0505] text-white overflow-hidden font-sans;
 }
 
-canvas {
-  image-rendering: pixelated;
+html, body {
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#game-canvas {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.fire-pad {
+  transition: transform 80ms ease-out, background-color 80ms ease-out;
+}
+.fire-pad.is-firing {
+  transform: scale(0.92);
+  background-color: rgb(16 185 129 / 0.4);
 }

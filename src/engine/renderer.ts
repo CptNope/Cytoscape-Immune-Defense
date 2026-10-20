@@ -6,6 +6,16 @@
 import type { Pathogen, Antibody, Particle, PowerUp, FloatingText, Ship, ActivePowerUps } from './types';
 import { randomRange } from './physics';
 
+/**
+ * Render quality. 'low' disables canvas shadow glows (by far the most
+ * expensive operation on mobile GPUs) and thins out the animated background.
+ */
+export type RenderQuality = 'high' | 'low';
+let glowEnabled = true;
+let lowDetail = false;
+/** Returns the requested shadow blur, or 0 when glow is disabled. */
+const glow = (blur: number): number => (glowEnabled ? blur : 0);
+
 export interface RenderState {
   ship: Ship;
   pathogens: Pathogen[];
@@ -20,7 +30,15 @@ export interface RenderState {
   gameState: 'menu' | 'playing' | 'gameover';
   shipHealth?: number;
   shipMaxHealth?: number;
+  /** World (logical) width/height. Defaults to the canvas size. */
+  viewWidth?: number;
+  viewHeight?: number;
+  /** Backing-store pixels per world unit. Defaults to 1. */
+  pixelScale?: number;
+  quality?: RenderQuality;
 }
+
+interface View { width: number; height: number }
 
 export function render(
   ctx: CanvasRenderingContext2D,
@@ -28,10 +46,20 @@ export function render(
   state: RenderState
 ): void {
   const { ship, pathogens, antibodies, particles, powerUps, floatingTexts, activePowerUps, shake, shakeAngle, flash, gameState } = state;
+  const scale = state.pixelScale ?? 1;
+  const view: View = {
+    width: state.viewWidth ?? canvas.width / scale,
+    height: state.viewHeight ?? canvas.height / scale,
+  };
+  glowEnabled = state.quality !== 'low';
+  lowDetail = state.quality === 'low';
+
+  // Draw everything in world units; the transform maps them to backing pixels.
+  ctx.setTransform(scale, 0, 0, scale, 0, 0);
 
   // Clear
   ctx.fillStyle = '#0a0505';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillRect(0, 0, view.width, view.height);
 
   // Apply Shake (with directional bias)
   ctx.save();
@@ -47,11 +75,11 @@ export function render(
 
   if (flash > 0) {
     ctx.fillStyle = `rgba(255, 0, 0, ${flash * 0.1})`;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillRect(0, 0, view.width, view.height);
   }
 
   // Draw Background Depth (floating RBCs)
-  drawBackground(ctx, canvas);
+  drawBackground(ctx, view);
 
   // Draw Particles
   drawParticles(ctx, particles);
@@ -76,14 +104,15 @@ export function render(
   ctx.restore(); // End Shake
 }
 
-function drawBackground(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement): void {
+function drawBackground(ctx: CanvasRenderingContext2D, canvas: View): void {
   const t = Date.now() * 0.001;
 
   // Layer 1: Deep plasma current streaks
   ctx.save();
   ctx.globalAlpha = 0.04;
-  for (let i = 0; i < 5; i++) {
-    const yBase = (canvas.height * (i + 0.5)) / 5;
+  const streaks = lowDetail ? 3 : 5;
+  for (let i = 0; i < streaks; i++) {
+    const yBase = (canvas.height * (i + 0.5)) / streaks;
     const waveY = Math.sin(t * 0.3 + i * 1.2) * 40;
     ctx.strokeStyle = '#7f1d1d';
     ctx.lineWidth = 60 + Math.sin(t * 0.2 + i) * 20;
@@ -100,7 +129,7 @@ function drawBackground(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement
 
   // Layer 2: Far-depth red blood cells (small, faded)
   ctx.save();
-  for (let i = 0; i < 12; i++) {
+  for (let i = 0; i < (lowDetail ? 5 : 12); i++) {
     const speed = 0.15 + (i % 3) * 0.05;
     const x = ((t * speed * 60 + i * 137) % (canvas.width + 60)) - 30;
     const y = ((Math.sin(t * 0.2 + i * 2.3) * 0.3 + 0.5) * canvas.height + i * 67) % canvas.height;
@@ -113,7 +142,7 @@ function drawBackground(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement
 
   // Layer 3: Mid-depth red blood cells (medium, slightly brighter)
   ctx.save();
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < (lowDetail ? 5 : 10); i++) {
     const speed = 0.25 + (i % 3) * 0.08;
     const x = ((t * speed * 50 + i * 193 + 400) % (canvas.width + 80)) - 40;
     const y = ((Math.cos(t * 0.15 + i * 1.7) * 0.35 + 0.5) * canvas.height + i * 89) % canvas.height;
@@ -128,7 +157,7 @@ function drawBackground(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement
   ctx.save();
   ctx.globalAlpha = 0.08;
   ctx.fillStyle = '#fbbf24';
-  for (let i = 0; i < 20; i++) {
+  for (let i = 0; i < (lowDetail ? 8 : 20); i++) {
     const px = ((t * 0.12 * 60 + i * 97) % canvas.width);
     const py = ((t * 0.08 * 60 + i * 113 + Math.sin(t + i) * 20) % canvas.height);
     const pr = 2 + (i % 3);
@@ -163,15 +192,22 @@ function drawRBC(ctx: CanvasRenderingContext2D, x: number, y: number, size: numb
 }
 
 function drawParticles(ctx: CanvasRenderingContext2D, particles: Particle[]): void {
-  particles.forEach(p => {
-    ctx.save();
-    ctx.globalAlpha = p.opacity;
+  for (let i = 0; i < particles.length; i++) {
+    const p = particles[i];
+    if (p.opacity <= 0) continue;
+    ctx.globalAlpha = Math.min(1, p.opacity);
     ctx.fillStyle = p.color;
-    ctx.beginPath();
-    ctx.arc(p.pos.x, p.pos.y, p.radius, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-  });
+    if (lowDetail) {
+      // Squares are much cheaper than arcs and indistinguishable at this size
+      const r = p.radius;
+      ctx.fillRect(p.pos.x - r, p.pos.y - r, r * 2, r * 2);
+    } else {
+      ctx.beginPath();
+      ctx.arc(p.pos.x, p.pos.y, p.radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  ctx.globalAlpha = 1;
 }
 
 function drawPowerUps(ctx: CanvasRenderingContext2D, powerUps: PowerUp[]): void {
@@ -227,26 +263,27 @@ function drawFloatingTexts(ctx: CanvasRenderingContext2D, texts: FloatingText[])
 }
 
 function drawAntibodies(ctx: CanvasRenderingContext2D, antibodies: Antibody[]): void {
-  antibodies.forEach(a => {
-    ctx.save();
-    ctx.translate(a.pos.x, a.pos.y);
-    ctx.rotate(a.rotation);
-    ctx.strokeStyle = '#4ade80';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(-4, 0);
-    ctx.lineTo(4, 0);
-    ctx.moveTo(0, -2);
-    ctx.lineTo(0, 2);
-    ctx.stroke();
-    ctx.restore();
-  });
+  if (antibodies.length === 0) return;
+  // Batch every antibody into a single path / single stroke call
+  ctx.strokeStyle = '#4ade80';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  for (let i = 0; i < antibodies.length; i++) {
+    const a = antibodies[i];
+    const c = Math.cos(a.rotation), s = Math.sin(a.rotation);
+    const x = a.pos.x, y = a.pos.y;
+    ctx.moveTo(x - 4 * c, y - 4 * s);
+    ctx.lineTo(x + 4 * c, y + 4 * s);
+    ctx.moveTo(x + 2 * s, y - 2 * c);
+    ctx.lineTo(x - 2 * s, y + 2 * c);
+  }
+  ctx.stroke();
 }
 
 function drawPathogens(ctx: CanvasRenderingContext2D, pathogens: Pathogen[]): void {
   // Draw trails first (behind everything)
   pathogens.forEach(p => {
-    if (p.variant === 'swift' || p.type === 'prion') {
+    if (!lowDetail && (p.variant === 'swift' || p.type === 'prion')) {
       const spd = Math.sqrt(p.vel.x * p.vel.x + p.vel.y * p.vel.y);
       if (spd > 0.5) {
         const trailColor = p.type === 'prion' ? '#94a3b8' : '#38bdf8';
@@ -301,7 +338,7 @@ function drawPathogens(ctx: CanvasRenderingContext2D, pathogens: Pathogen[]): vo
 
     ctx.strokeStyle = color;
     ctx.shadowColor = color;
-    ctx.shadowBlur = p.isBoss ? 25 : p.variant ? 20 : 10;
+    ctx.shadowBlur = glow(p.isBoss ? 25 : p.variant ? 20 : 10);
     ctx.fillStyle = `${color}1a`;
     ctx.lineWidth = p.isBoss ? 3 : p.variant === 'armored' ? 4 : 2;
 
@@ -331,7 +368,7 @@ function drawPathogens(ctx: CanvasRenderingContext2D, pathogens: Pathogen[]): vo
       ctx.strokeStyle = '#60a5fa';
       ctx.lineWidth = 4;
       ctx.shadowColor = '#60a5fa';
-      ctx.shadowBlur = 30;
+      ctx.shadowBlur = glow(30);
       ctx.beginPath();
       ctx.arc(0, 0, p.radius + 8, 0, Math.PI * 2);
       ctx.stroke();
@@ -496,7 +533,7 @@ function drawBiofilm(ctx: CanvasRenderingContext2D, p: Pathogen): void {
     ctx.strokeStyle = '#38bdf8';
     ctx.lineWidth = 3;
     ctx.shadowColor = '#38bdf8';
-    ctx.shadowBlur = 20;
+    ctx.shadowBlur = glow(20);
     ctx.globalAlpha = 0.4 + (p.shieldHealth! / (p.maxShieldHealth ?? 1)) * 0.4;
     ctx.beginPath();
     ctx.arc(0, 0, p.radius + 5, 0, Math.PI * 2);
@@ -537,7 +574,7 @@ function drawWormSegments(ctx: CanvasRenderingContext2D, p: Pathogen): void {
   ctx.save();
   ctx.strokeStyle = '#a855f7';
   ctx.shadowColor = '#a855f7';
-  ctx.shadowBlur = 15;
+  ctx.shadowBlur = glow(15);
   ctx.lineWidth = 2;
 
   // Draw segments from tail to head
@@ -566,7 +603,7 @@ function drawColonySegments(ctx: CanvasRenderingContext2D, p: Pathogen): void {
   ctx.save();
   ctx.strokeStyle = '#ef4444';
   ctx.shadowColor = '#ef4444';
-  ctx.shadowBlur = 12;
+  ctx.shadowBlur = glow(12);
   ctx.lineWidth = 2;
 
   // Draw connecting membrane
@@ -651,7 +688,7 @@ function drawShip(ctx: CanvasRenderingContext2D, ship: Ship, activePowerUps: Act
   // Main Body
   ctx.strokeStyle = isLow ? (isCritical ? '#ef4444' : '#fca5a5') : '#ffffff';
   ctx.shadowColor = isLow ? '#ef4444' : '#ffffff';
-  ctx.shadowBlur = 15;
+  ctx.shadowBlur = glow(15);
   ctx.fillStyle = isLow ? 'rgba(239, 68, 68, 0.08)' : 'rgba(255, 255, 255, 0.1)';
   ctx.lineWidth = 2;
   ctx.beginPath();
