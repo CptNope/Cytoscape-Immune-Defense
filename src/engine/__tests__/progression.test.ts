@@ -496,3 +496,14 @@ describe('cosmetics', () => {
     expect(computeModifiers(r).membraneColor).toBe('#22d3ee');
   });
 });
+
+describe('migration of new cytokines', () => {
+  it('unlocks cytokines a high-level save already qualifies for', () => {
+    const old = { ...freshProfile(), playerLevel: 10, lifetimeXp: 15000, cytokines: { auto_target: true, regeneration: true, chain_reaction: false } };
+    localStorageMock.setItem('cytoscape-player-profile', JSON.stringify(old));
+    const p = loadProfile();
+    expect(p.cytokines.interferon).toBe(true);
+    expect(p.cytokines.fever).toBe(true);
+    expect(p.equippedCytokines).toEqual(['auto_target', 'regeneration']);
+  });
+});

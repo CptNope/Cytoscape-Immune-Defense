@@ -96,6 +96,15 @@ export function loadProfile(): PlayerProfile {
       // Migrate pre-loadout saves: keep the first unlocked cytokines equipped
       merged.equippedCytokines = activeCytokines({ ...merged, equippedCytokines: undefined as unknown as CytokineId[] });
     }
+    // Cytokines added in later versions unlock immediately for existing high-level players
+    merged.cytokines = { ...merged.cytokines };
+    merged.equippedCytokines = [...merged.equippedCytokines];
+    CYTOKINE_DEFS.forEach(def => {
+      if (merged.playerLevel >= def.unlockPlayerLevel && !merged.cytokines[def.id]) {
+        merged.cytokines[def.id] = true;
+        if (merged.equippedCytokines.length < CYTOKINE_SLOTS) merged.equippedCytokines.push(def.id);
+      }
+    });
     if (!isCellUnlocked(merged.cellType, merged.playerLevel)) merged.cellType = 'killer_t';
     return merged;
   } catch {

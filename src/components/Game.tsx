@@ -169,9 +169,13 @@ export default function Game() {
   const [gameMode, setGameMode] = useState<GameMode>('endless');
   const [campaignLevelIdx, setCampaignLevelIdx] = useState(0);
   const [campaignProgress, setCampaignProgress] = useState(() => {
-    try { return parseInt(localStorage.getItem('cyto-campaign-progress') || '0', 10); } catch { return 0; }
+    try {
+      const n = parseInt(localStorage.getItem('cyto-campaign-progress') || '0', 10);
+      return Number.isFinite(n) ? Math.max(0, Math.min(n, CAMPAIGN_LEVELS.length)) : 0;
+    } catch { return 0; }
   });
   const [stars, setStars] = useState<Record<number, number>>(loadCampaignStars);
+  const [campaignWon, setCampaignWon] = useState(false);
   const [timeAttackTimer, setTimeAttackTimer] = useState(0);
   const timeAttackRef = useRef(0); // steps remaining
   const gameModeRef = useRef<GameMode>('endless');
@@ -323,6 +327,7 @@ export default function Game() {
     levelStartRef.current = 0;
     levelDamageRef.current = 0;
     setRunSummary({ bosses: 0, stars: [] });
+    setCampaignWon(false);
 
     // Mode-specific initial spawning
     const mode = gameModeRef.current;
@@ -696,7 +701,7 @@ export default function Game() {
       for (const nearby of pathogensRef.current) {
         if (!nearby.dead && !nearby.hidden && !nearby.harmless && nearby.id !== p.id &&
             distance(p.pos, nearby.pos) < CHAIN_REACTION_RADIUS) {
-          applyDamage(nearby, CHAIN_REACTION_DAMAGE);
+          indirectDamage(nearby, CHAIN_REACTION_DAMAGE);
           createExplosion(nearby.pos, '#fbbf24', 3);
         }
       }
@@ -726,9 +731,19 @@ export default function Game() {
     }
   };
 
+  /**
+   * Damage from sources other than antibodies (bomb, fever, chain reaction,
+   * abilities): respects boss shields, armour and the boss-damage mutation.
+   */
+  const indirectDamage = (p: Pathogen, dmg: number) => {
+    if (p.dead || p.hidden || p.invulnerable) return;
+    if (p.isBoss) dmg *= (p.boss?.data.armor ?? 1) * mutFxRef.current.bossDamageMult;
+    applyDamage(p, dmg);
+  };
+
   /** Applies damage to a pathogen's health and kills it if needed. */
   const applyDamage = (p: Pathogen, dmg: number) => {
-    if (p.dead || dmg <= 0) return;
+    if (p.dead || dmg <= 0 || p.invulnerable) return;
     p.health -= dmg;
     p.hitFlash = 6;
     if (p.health <= 0) killPathogen(p);
@@ -741,8 +756,10 @@ export default function Game() {
       const dmg = bombDamage(p, BOMB_BOSS_DAMAGE_FRACTION);
       if (dmg === Infinity) {
         killPathogen(p, { noSplit: true });
+      } else if (p.invulnerable) {
+        spawnFloatingText(p.pos, 'SHIELDED', '#60a5fa', 14);
       } else {
-        applyDamage(p, dmg);
+        indirectDamage(p, dmg);
         spawnFloatingText(p.pos, `-${Math.round(dmg)}`, '#ef4444', 18);
       }
     }
@@ -830,6 +847,10 @@ export default function Game() {
       spawnFloatingText(shipRef.current.pos, '★'.repeat(earned) + '☆'.repeat(3 - earned), '#fbbf24', 26);
       if (campaignIdxRef.current + 1 >= CAMPAIGN_LEVELS.length) {
         spawnFloatingText(shipRef.current.pos, 'CAMPAIGN COMPLETE!', '#4ade80', 28);
+        const done = CAMPAIGN_LEVELS.length;
+        setCampaignProgress(done);
+        try { localStorage.setItem('cyto-campaign-progress', String(done)); } catch {}
+        setCampaignWon(true);
         endGame();
         return;
       }
@@ -845,6 +866,8 @@ export default function Game() {
   };
 
   const pickMutation = (id: MutationId) => {
+    // The overlay stays clickable while it fades out: ignore a second pick
+    if (!draftOpenRef.current) return;
     const run = applyMutation(runMutationsRef.current, id);
     runMutationsRef.current = run;
     setRunMutations(run);
@@ -1055,7 +1078,7 @@ export default function Game() {
       addLysis(ship.pos, '#fb923c', FEVER_RADIUS);
       for (const p of pathogensRef.current) {
         if (p.dead || p.hidden || p.harmless) continue;
-        if (distance(p.pos, ship.pos) < FEVER_RADIUS + p.radius) applyDamage(p, FEVER_DAMAGE);
+        if (distance(p.pos, ship.pos) < FEVER_RADIUS + p.radius) indirectDamage(p, FEVER_DAMAGE);
       }
     }
 
@@ -1142,7 +1165,7 @@ export default function Game() {
       }
       if (engulfR > 0 && p.isBoss && !abilityHitIdsRef.current.has(p.id)) {
         abilityHitIdsRef.current.add(p.id);
-        applyDamage(p, 6);
+        indirectDamage(p, 6);
       }
       if (!plainContact) continue;
       if (mods.cellType === 'macrophage' && canEat && !p.isBossPart && p.radius <= 18) {
@@ -1154,7 +1177,7 @@ export default function Game() {
       if (dashing) {
         if (!abilityHitIdsRef.current.has(p.id)) {
           abilityHitIdsRef.current.add(p.id);
-          applyDamage(p, 4 * fx.damageMult);
+          indirectDamage(p, 4 * fx.damageMult);
           createExplosion(p.pos, '#93c5fd', 6);
         }
         continue;
@@ -1689,7 +1712,7 @@ export default function Game() {
   const cellDef = getCellType(profile.cellType);
   const unlockedClasses = unlockedAntibodyClasses(profile.playerLevel);
   const effectiveMax = modifiersRef.current.maxHealth + mutationEffects(runMutations).bonusMaxHealth;
-  const campaignFinished = gameMode === 'campaign' && campaignLevelIdx >= CAMPAIGN_LEVELS.length - 1 && health > 0;
+  const campaignFinished = gameMode === 'campaign' && campaignWon;
 
   return (
     <div ref={containerRef} className="relative w-full h-[100dvh] overflow-hidden bg-black select-none">
