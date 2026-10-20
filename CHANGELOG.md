@@ -5,6 +5,30 @@ All notable changes to Cytoscape: Immune Defense will be documented in this file
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.10.0] - 2026-10-20
+
+### Performance (low-end tablets & phones)
+- **No more React re-renders every frame** — screen shake, damage flash and the time-attack clock were stored in React state and updated 60×/sec, re-rendering the whole UI tree every frame. They now live in refs; React only re-renders when the HUD actually changes
+- **Fixed-timestep game loop** — gameplay runs at 60 updates/sec of game time regardless of display rate, so 30fps tablets no longer play in slow motion and 120Hz phones no longer play at double speed. Duplicate frames aren't redrawn, and menus redraw at ~30fps
+- **Adaptive render quality** — a "low" mode disables canvas `shadowBlur` glows (the biggest GPU cost on mobile), thins the animated background, skips motion trails, draws particles as squares and renders at 1× pixel density. It's chosen automatically for low-spec touch devices and switched on mid-game if the frame rate stays under ~45fps
+- **Cheaper drawing** — antibodies are batched into one path, particles skip per-item `save()/restore()`, the canvas context is opaque (`alpha: false`) and cached
+- **Lighter overlays** — removed `backdrop-blur` from the in-game HUD (re-composited every frame over the moving canvas) and the scanline layer on low quality
+- **Explosion sounds** — noise buffers are generated once per size instead of on every kill
+- Removed the vibration pulse on every shot (caused jank on some Android devices)
+
+### Fixed
+- **Phones were zoomed in too far** — the play area is now at least 640 world units on its short side and scaled to fit the screen, so phones see the same battlefield as tablets instead of a cropped, oversized slice
+- **Sharper rendering** on high-DPI screens (device pixel ratio up to 2× on high quality); removed `image-rendering: pixelated`
+- **Wonky touch controls** — rewritten as twin touch zones:
+  - Left half: floating joystick that appears under your thumb, has a dead zone, and drags along when you overshoot so reversing direction is instant
+  - Right half: hold anywhere to fire
+  - Each zone tracks its own pointer with pointer capture — previously the stick listened to every finger on the screen, so tapping fire could yank the stick
+  - Handles `pointercancel` / lost capture, so the stick can no longer get stuck on
+  - Smoother steering: capped turn rate, thrust scales with how far you push, and no thrust while the ship is still facing away
+- **Pause didn't actually pause** — the game loop read a stale `isPaused` value. The game now also auto-pauses when the app is backgrounded
+- **Controls cut off by the mobile browser bar** — layout uses `100dvh` instead of `100vh`
+- Keyboard controls work with Caps Lock on; Space/arrows no longer scroll the page
+
 ## [1.9.0] - 2026-02-28
 
 ### Fixed

@@ -46,6 +46,7 @@ export class AudioEngine {
   private musicGain: GainNode | null = null;
   private settings: AudioSettings;
   private musicNodes: OscillatorNode[] = [];
+  private noiseCache = new Map<string, AudioBuffer>();
   private musicPlaying = false;
   private thrustOsc: OscillatorNode | null = null;
   private thrustGain: GainNode | null = null;
@@ -138,11 +139,16 @@ export class AudioEngine {
     const vol = size === 'small' ? 0.1 : size === 'large' ? 0.25 : 0.15;
 
     // Noise via buffer
-    const bufferSize = ctx.sampleRate * duration;
-    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) {
-      data[i] = (Math.random() * 2 - 1) * (1 - i / bufferSize);
+    // Noise buffers are generated once per size and reused
+    let buffer = this.noiseCache.get(size);
+    if (!buffer || buffer.sampleRate !== ctx.sampleRate) {
+      const bufferSize = Math.floor(ctx.sampleRate * duration);
+      buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = (Math.random() * 2 - 1) * (1 - i / bufferSize);
+      }
+      this.noiseCache.set(size, buffer);
     }
 
     const noise = ctx.createBufferSource();

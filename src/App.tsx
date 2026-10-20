@@ -8,7 +8,7 @@ import PWAUpdatePrompt from './components/PWAUpdatePrompt';
 
 export default function App() {
   return (
-    <main className="w-full h-screen">
+    <main className="w-full h-[100dvh]">
       <Game />
       <PWAUpdatePrompt />
     </main>

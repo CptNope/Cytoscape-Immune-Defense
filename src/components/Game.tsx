@@ -5,12 +5,12 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Zap, Activity, RefreshCw, Trophy } from 'lucide-react';
+import { Activity, RefreshCw, Trophy, Pause } from 'lucide-react';
 import {
   type Vector, type Pathogen, type Antibody, type Particle, type PowerUp,
   type FloatingText, type ScoreEntry, type Ship, type ActivePowerUps, type VirtualControls,
   type PlayerProfile, type GameModifiers, type PathogenType, type BossType,
-  type GameMode, type CampaignLevel,
+  type GameMode, type CampaignLevel, type RenderQuality,
   FRICTION, SHIP_TURN_SPEED, BULLET_SPEED, BULLET_LIFE,
   PATHOGEN_MIN_RADIUS, PATHOGEN_MAX_RADIUS, INITIAL_PATHOGEN_COUNT, MAX_PARTICLES,
   POWERUP_DROP_RATE, POWERUP_LIFETIME,
@@ -30,7 +30,7 @@ import {
   angleToTarget, speed, clampSpeed,
   loadTopScores, saveTopScore,
   render,
-  AudioEngine, haptic, HAPTIC_DAMAGE, HAPTIC_POWERUP, HAPTIC_BOMB, HAPTIC_FIRE,
+  AudioEngine, haptic, HAPTIC_DAMAGE, HAPTIC_POWERUP, HAPTIC_BOMB,
   loadProfile, awardXp, recordRunStats, computeModifiers,
   CAMPAIGN_LEVELS, TIME_ATTACK_INITIAL_SECONDS, TIME_ATTACK_KILL_BONUS_SECONDS, TIME_ATTACK_BOSS_BONUS_SECONDS,
 } from '../engine';
@@ -39,6 +39,27 @@ import UpgradeScreen from './UpgradeScreen';
 import StatsPanel from './StatsPanel';
 import ModeSelect from './ModeSelect';
 import CampaignBriefing from './CampaignBriefing';
+import TouchControls from './TouchControls';
+
+const STEP_MS = 1000 / 60;
+const MAX_STEPS_PER_FRAME = 4;
+/** Short side of the play area in world units; smaller screens zoom out to fit it. */
+const WORLD_MIN_DIM = 640;
+/** Never zoom out further than this (keeps entities readable on tiny phones). */
+const MIN_ZOOM = 0.5;
+const QUALITY_KEY = 'cyto-render-quality';
+
+function detectInitialQuality(): RenderQuality {
+  try {
+    const saved = localStorage.getItem(QUALITY_KEY);
+    if (saved === 'high' || saved === 'low') return saved;
+  } catch {}
+  if (typeof navigator === 'undefined') return 'high';
+  const touch = navigator.maxTouchPoints > 0;
+  const cores = navigator.hardwareConcurrency || 4;
+  const memory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? 4;
+  return touch && (cores <= 4 || memory <= 3) ? 'low' : 'high';
+}
 
 export default function Game() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -48,10 +69,26 @@ export default function Game() {
   const [lastScoreRank, setLastScoreRank] = useState<number | null>(null);
   const [level, setLevel] = useState(1);
   const [health, setHealth] = useState(100);
-  const [shake, setShake] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
-  const [flash, setFlash] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
+
+  // Per-frame values live in refs so the game loop never triggers React re-renders
+  const shakeRef = useRef(0);
+  const flashRef = useRef(0);
+  const healthRef = useRef(100);
+  const isPausedRef = useRef(false);
+  const gameStateRef = useRef<'menu' | 'playing' | 'gameover'>('menu');
+  const timeAttackSecsRef = useRef(-1);
+
+  // Viewport → world mapping. The world is never smaller than WORLD_MIN_DIM
+  // units on its short side, so phones see the same play area as tablets
+  // instead of a zoomed-in slice of it.
+  const containerRef = useRef<HTMLDivElement>(null);
+  const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
+  const worldRef = useRef({ w: 800, h: 600, zoom: 1, pixelScale: 1 });
+  const [quality, setQuality] = useState<RenderQuality>(detectInitialQuality);
+  const qualityRef = useRef<RenderQuality>(quality);
+  const perfRef = useRef({ frames: 0, time: 0, badWindows: 0 });
 
   // Progression
   const [profile, setProfile] = useState<PlayerProfile>(loadProfile());
@@ -114,12 +151,20 @@ export default function Game() {
 
   // --- Initialization ---
 
+  const endGame = () => {
+    gameStateRef.current = 'gameover';
+    setGameState('gameover');
+    audioRef.current.stopThrust();
+    audioRef.current.stopMusic();
+    prevThrustingRef.current = false;
+  };
+
   const initGame = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
     shipRef.current = {
-      pos: { x: canvas.width / 2, y: canvas.height / 2 },
+      pos: { x: worldRef.current.w / 2, y: worldRef.current.h / 2 },
       vel: { x: 0, y: 0 },
       radius: 18,
       rotation: -Math.PI / 2,
@@ -139,10 +184,11 @@ export default function Game() {
       damageBoost: 0
     };
     setScore(0);
+    healthRef.current = modifiersRef.current.maxHealth;
     setHealth(modifiersRef.current.maxHealth);
     setLevel(1);
-    setShake(0);
-    setFlash(0);
+    shakeRef.current = 0;
+    flashRef.current = 0;
     setIsPaused(false);
 
     // Reset virtual controls so fire doesn't persist across matches
@@ -162,6 +208,7 @@ export default function Game() {
       spawnCampaignWave(campaignLevelRef.current);
     } else if (mode === 'time_attack') {
       timeAttackRef.current = TIME_ATTACK_INITIAL_SECONDS * 60; // convert to frames
+      timeAttackSecsRef.current = TIME_ATTACK_INITIAL_SECONDS;
       setTimeAttackTimer(TIME_ATTACK_INITIAL_SECONDS);
       for (let i = 0; i < INITIAL_PATHOGEN_COUNT + 2; i++) {
         spawnPathogen(true);
@@ -179,7 +226,7 @@ export default function Game() {
     if (!canvas) return;
 
     // Scale enemies smaller on small screens
-    const minDim = Math.min(canvas.width, canvas.height);
+    const minDim = Math.min(worldRef.current.w, worldRef.current.h);
     const sizeScale = Math.min(1, minDim / 600); // 1.0 at 600px+, shrinks below
     const rawRadius = parent ? parent.radius / 2 : randomRange(PATHOGEN_MIN_RADIUS + 10, PATHOGEN_MAX_RADIUS);
     const radius = Math.max(PATHOGEN_MIN_RADIUS * 0.7, rawRadius * sizeScale);
@@ -191,8 +238,8 @@ export default function Game() {
     } else {
       do {
         pos = {
-          x: Math.random() * canvas.width,
-          y: Math.random() * canvas.height
+          x: Math.random() * worldRef.current.w,
+          y: Math.random() * worldRef.current.h
         };
       } while (safeZone && distance(pos, shipRef.current.pos) < 200);
     }
@@ -240,8 +287,8 @@ export default function Game() {
   const spawnPrionSwarm = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const centerX = Math.random() * canvas.width;
-    const centerY = Math.random() * canvas.height;
+    const centerX = Math.random() * worldRef.current.w;
+    const centerY = Math.random() * worldRef.current.h;
     for (let i = 0; i < PRION_SWARM_SIZE; i++) {
       const angle = (Math.PI * 2 * i) / PRION_SWARM_SIZE + randomRange(-0.3, 0.3);
       const dist = randomRange(20, 50);
@@ -267,7 +314,7 @@ export default function Game() {
     if (!canvas) return;
     let pos: Vector;
     do {
-      pos = { x: Math.random() * canvas.width, y: Math.random() * canvas.height };
+      pos = { x: Math.random() * worldRef.current.w, y: Math.random() * worldRef.current.h };
     } while (distance(pos, shipRef.current.pos) < 200);
     const hp = CANCER_INITIAL_RADIUS * CANCER_HEALTH_PER_RADIUS;
     pathogensRef.current.push({
@@ -292,7 +339,7 @@ export default function Game() {
     if (!canvas) return;
     let pos: Vector;
     do {
-      pos = { x: Math.random() * canvas.width, y: Math.random() * canvas.height };
+      pos = { x: Math.random() * worldRef.current.w, y: Math.random() * worldRef.current.h };
     } while (distance(pos, shipRef.current.pos) < 250);
     pathogensRef.current.push({
       id: nextIdRef.current++,
@@ -324,7 +371,7 @@ export default function Game() {
 
     let pos: Vector;
     do {
-      pos = { x: Math.random() * canvas.width, y: Math.random() * canvas.height };
+      pos = { x: Math.random() * worldRef.current.w, y: Math.random() * worldRef.current.h };
     } while (distance(pos, shipRef.current.pos) < 200);
 
     const radius = type === 'fungus' ? randomRange(35, PATHOGEN_MAX_RADIUS) :
@@ -382,8 +429,8 @@ export default function Game() {
   const spawnBoss = (bossLevel: number) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const cx = canvas.width / 2;
-    const cy = canvas.height / 2;
+    const cx = worldRef.current.w / 2;
+    const cy = worldRef.current.h / 2;
     // Spawn boss opposite to the player
     const ship = shipRef.current;
     const angle = Math.atan2(cy - ship.pos.y, cx - ship.pos.x);
@@ -519,7 +566,7 @@ export default function Game() {
   };
 
   const triggerBomb = () => {
-    setShake(20);
+    shakeRef.current = 20;
     pathogensRef.current.forEach(p => {
       createExplosion(p.pos, p.type === 'bacteria' ? '#ef4444' : p.type === 'virus' ? '#f59e0b' : p.type === 'parasite' ? '#a855f7' : '#10b981', 15);
       setScore(s => s + p.points);
@@ -560,15 +607,22 @@ export default function Game() {
       while (diff < -Math.PI) diff += Math.PI * 2;
       while (diff > Math.PI) diff -= Math.PI * 2;
 
-      // Smoothly rotate towards joystick direction
-      if (Math.abs(diff) > 0.05) {
-        ship.rotation += diff * 0.15;
+      // Rotate towards the stick direction quickly, but with a capped turn
+      // rate so small jitters in the finger don't make the ship twitch.
+      if (Math.abs(diff) > 0.02) {
+        const turn = Math.sign(diff) * Math.min(Math.abs(diff) * 0.3, 0.22);
+        ship.rotation += turn;
       }
 
-      // Thrust if joystick is pushed far enough
-      if (virtualControlsRef.current.joystickDistance > 0.4) {
-        ship.vel.x += Math.cos(ship.rotation) * modifiersRef.current.thrustPower;
-        ship.vel.y += Math.sin(ship.rotation) * modifiersRef.current.thrustPower;
+      // Thrust scales with how far the stick is pushed (past a small band
+      // that's rotate-only), and only once the ship roughly faces the stick
+      // so it doesn't push you sideways while turning around.
+      const d = virtualControlsRef.current.joystickDistance;
+      if (d > 0.45 && Math.abs(diff) < Math.PI / 2) {
+        const t = Math.min(1, (d - 0.45) / 0.45);
+        const power = modifiersRef.current.thrustPower * (0.5 + 0.5 * t);
+        ship.vel.x += Math.cos(ship.rotation) * power;
+        ship.vel.y += Math.sin(ship.rotation) * power;
         isThrusting = true;
       }
     } else {
@@ -614,7 +668,7 @@ export default function Game() {
 
     applyVelocity(ship);
     applyFriction(ship, FRICTION);
-    wrapPosition(ship.pos, canvas.width, canvas.height);
+    wrapPosition(ship.pos, worldRef.current.w, worldRef.current.h);
 
     // Update Power-up timers
     const ap = activePowerUpsRef.current;
@@ -642,7 +696,6 @@ export default function Game() {
       });
       ship.lastShot = Date.now();
       audioRef.current.playFire();
-      haptic(HAPTIC_FIRE);
     }
 
     // 2. Update Pathogens
@@ -761,7 +814,7 @@ export default function Game() {
 
       applyVelocity(p);
       p.rotation += p.type === 'fungus' ? 0.005 : p.type === 'cancer' ? 0.003 : p.type === 'biofilm' ? 0.002 : 0.01;
-      if (p.type !== 'cancer') wrapPosition(p.pos, canvas.width, canvas.height, p.radius);
+      if (p.type !== 'cancer') wrapPosition(p.pos, worldRef.current.w, worldRef.current.h, p.radius);
 
       // Collision with Ship
       if (circlesCollide(p, ship)) {
@@ -773,7 +826,7 @@ export default function Game() {
           ship.vel.x -= Math.cos(angle) * 2;
           ship.vel.y -= Math.sin(angle) * 2;
         } else if (activePowerUpsRef.current.shield > 0) {
-          setShake(5);
+          shakeRef.current = 5;
           shakeAngleRef.current = Math.atan2(p.pos.y - ship.pos.y, p.pos.x - ship.pos.x);
           audioRef.current.playShieldBounce();
           // Bounce pathogen
@@ -781,19 +834,16 @@ export default function Game() {
           p.vel.x = Math.cos(angle) * 5;
           p.vel.y = Math.sin(angle) * 5;
         } else {
-          setHealth(prev => {
-            const next = prev - 10;
-            if (next <= 0) {
-              setGameState('gameover');
-              createExplosion(ship.pos, '#ffffff', 30);
-              audioRef.current.playGameOver();
-              audioRef.current.stopThrust();
-              audioRef.current.stopMusic();
-            }
-            return Math.max(0, next);
-          });
-          setShake(10);
-          setFlash(5);
+          const next = Math.max(0, healthRef.current - 10);
+          healthRef.current = next;
+          setHealth(next);
+          if (next <= 0 && gameStateRef.current === 'playing') {
+            endGame();
+            createExplosion(ship.pos, '#ffffff', 30);
+            audioRef.current.playGameOver();
+          }
+          shakeRef.current = 10;
+          flashRef.current = 5;
           shakeAngleRef.current = Math.atan2(ship.pos.y - p.pos.y, ship.pos.x - p.pos.x);
           audioRef.current.playDamage();
           haptic(HAPTIC_DAMAGE);
@@ -812,7 +862,7 @@ export default function Game() {
     antibodiesRef.current = antibodiesRef.current.filter(a => {
       applyVelocity(a);
       a.life--;
-      wrapPosition(a.pos, canvas.width, canvas.height);
+      wrapPosition(a.pos, worldRef.current.w, worldRef.current.h);
 
       // Collision with Pathogens
       let hit = false;
@@ -877,7 +927,7 @@ export default function Game() {
 
             if (p.isBoss) {
               spawnFloatingText(p.pos, 'BOSS DEFEATED!', '#fbbf24', 28);
-              setShake(25);
+              shakeRef.current = 25;
               audioRef.current.playBossDefeat();
             }
 
@@ -939,7 +989,7 @@ export default function Game() {
     powerUpsRef.current = powerUpsRef.current.filter(p => {
       applyVelocity(p);
       p.life--;
-      wrapPosition(p.pos, canvas.width, canvas.height);
+      wrapPosition(p.pos, worldRef.current.w, worldRef.current.h);
 
       // Collision with Ship
       if (circlesCollide(p, ship)) {
@@ -999,9 +1049,7 @@ export default function Game() {
         if (nextIdx >= CAMPAIGN_LEVELS.length) {
           // Campaign complete!
           spawnFloatingText(shipRef.current.pos, 'CAMPAIGN COMPLETE!', '#4ade80', 28);
-          setGameState('gameover');
-          audioRef.current.stopThrust();
-          audioRef.current.stopMusic();
+          endGame();
         } else {
           audioRef.current.playLevelClear();
           setCampaignLevelIdx(nextIdx);
@@ -1060,14 +1108,16 @@ export default function Game() {
     if (gameModeRef.current === 'time_attack') {
       timeAttackRef.current--;
       const secs = Math.max(0, Math.ceil(timeAttackRef.current / 60));
-      setTimeAttackTimer(secs);
-      if (timeAttackRef.current <= 0) {
-        setGameState('gameover');
+      if (secs !== timeAttackSecsRef.current) {
+        // Only touch React state when the displayed number actually changes
+        timeAttackSecsRef.current = secs;
+        setTimeAttackTimer(secs);
+      }
+      if (timeAttackRef.current <= 0 && gameStateRef.current === 'playing') {
         spawnFloatingText(shipRef.current.pos, 'TIME\'S UP!', '#f59e0b', 28);
         createExplosion(shipRef.current.pos, '#f59e0b', 25);
         audioRef.current.playGameOver();
-        audioRef.current.stopThrust();
-        audioRef.current.stopMusic();
+        endGame();
       }
     }
 
@@ -1100,20 +1150,26 @@ export default function Game() {
       regenTimerRef.current++;
       if (regenTimerRef.current >= REGEN_INTERVAL) {
         regenTimerRef.current = 0;
-        setHealth(h => Math.min(modifiersRef.current.maxHealth, h + REGEN_AMOUNT));
+        const healed = Math.min(modifiersRef.current.maxHealth, healthRef.current + REGEN_AMOUNT);
+        if (healed !== healthRef.current) {
+          healthRef.current = healed;
+          setHealth(healed);
+        }
       }
     }
 
     // 9. Update Shake
-    setShake(s => Math.max(0, s * 0.9));
-    setFlash(f => Math.max(0, f - 1));
+    shakeRef.current = shakeRef.current > 0.1 ? shakeRef.current * 0.9 : 0;
+    if (flashRef.current > 0) flashRef.current--;
   };
 
   const draw = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext('2d');
+    if (!ctxRef.current) ctxRef.current = canvas.getContext('2d', { alpha: false });
+    const ctx = ctxRef.current;
     if (!ctx) return;
+    const world = worldRef.current;
 
     render(ctx, canvas, {
       ship: shipRef.current,
@@ -1123,57 +1179,150 @@ export default function Game() {
       powerUps: powerUpsRef.current,
       floatingTexts: floatingTextsRef.current,
       activePowerUps: activePowerUpsRef.current,
-      shake,
+      shake: shakeRef.current,
       shakeAngle: shakeAngleRef.current,
-      flash,
-      gameState,
-      shipHealth: health,
+      flash: flashRef.current,
+      gameState: gameStateRef.current,
+      shipHealth: healthRef.current,
       shipMaxHealth: modifiersRef.current.maxHealth,
+      viewWidth: world.w,
+      viewHeight: world.h,
+      pixelScale: world.pixelScale,
+      quality: qualityRef.current,
     });
   };
 
-  const loop = () => {
-    if (gameState === 'playing' && !isPaused) {
-      update();
-    }
-    draw();
-    requestRef.current = requestAnimationFrame(loop);
-  };
+  // Always call the latest update/draw closures from the rAF loop
+  const frameFnsRef = useRef({ update, draw });
+  frameFnsRef.current = { update, draw };
 
   // --- Effects ---
 
+  useEffect(() => { gameStateRef.current = gameState; }, [gameState]);
+  useEffect(() => { isPausedRef.current = isPaused; }, [isPaused]);
+
+  // Size the canvas: world units for gameplay, capped device pixels for sharpness
+  const applyCanvasSize = () => {
+    const canvas = canvasRef.current;
+    const container = containerRef.current;
+    if (!canvas || !container) return;
+    const cssW = Math.max(1, container.clientWidth);
+    const cssH = Math.max(1, container.clientHeight);
+    const zoom = Math.min(1, Math.max(MIN_ZOOM, Math.min(cssW, cssH) / WORLD_MIN_DIM));
+    const dpr = qualityRef.current === 'high' ? Math.min(window.devicePixelRatio || 1, 2) : 1;
+    canvas.width = Math.round(cssW * dpr);
+    canvas.height = Math.round(cssH * dpr);
+    worldRef.current = { w: cssW / zoom, h: cssH / zoom, zoom, pixelScale: zoom * dpr };
+    ctxRef.current = null; // context state resets on resize
+  };
+
+  useEffect(() => {
+    qualityRef.current = quality;
+    applyCanvasSize();
+  }, [quality]);
+
   useEffect(() => {
     const handleResize = () => {
-      const canvas = canvasRef.current;
-      if (canvas) {
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-      }
-      setIsMobile(window.innerWidth < 768 || 'ontouchstart' in window);
+      applyCanvasSize();
+      setIsMobile(
+        window.innerWidth < 768 ||
+        navigator.maxTouchPoints > 0 ||
+        window.matchMedia?.('(pointer: coarse)').matches
+      );
     };
-
-    window.addEventListener('resize', handleResize);
     handleResize();
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('orientationchange', handleResize);
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(handleResize) : null;
+    if (ro && containerRef.current) ro.observe(containerRef.current);
 
-    const handleKeyDown = (e: KeyboardEvent) => { 
-      keysRef.current[e.key] = true; 
-      if (e.key === 'Escape' && gameState === 'playing') {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+      keysRef.current[key] = true;
+      if (key === ' ' || key.startsWith('Arrow')) e.preventDefault();
+      if (key === 'Escape' && gameStateRef.current === 'playing') {
         setIsPaused(prev => !prev);
       }
     };
-    const handleKeyUp = (e: KeyboardEvent) => { keysRef.current[e.key] = false; };
+    const handleKeyUp = (e: KeyboardEvent) => {
+      const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+      keysRef.current[key] = false;
+    };
+    const handleVisibility = () => {
+      if (document.hidden && gameStateRef.current === 'playing') {
+        setIsPaused(true);
+        audioRef.current.stopThrust();
+        prevThrustingRef.current = false;
+      }
+    };
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
+    document.addEventListener('visibilitychange', handleVisibility);
 
-    requestRef.current = requestAnimationFrame(loop);
+    // Fixed-timestep loop: gameplay always runs at 60 updates/sec of game
+    // time, so 30fps tablets don't play in slow motion and 120Hz phones don't
+    // play at double speed. Rendering happens at most once per rAF.
+    let raf = 0;
+    let last = performance.now();
+    let acc = 0;
+    let lastIdleDraw = 0;
+    const tick = (now: number) => {
+      let dt = now - last;
+      last = now;
+      if (dt > 250) dt = STEP_MS; // returning from a background tab
+      const running = gameStateRef.current === 'playing' && !isPausedRef.current;
+      if (running) {
+        acc += dt;
+        let steps = 0;
+        while (acc >= STEP_MS && steps < MAX_STEPS_PER_FRAME) {
+          frameFnsRef.current.update();
+          acc -= STEP_MS;
+          steps++;
+          if (gameStateRef.current !== 'playing') break;
+        }
+        if (acc > STEP_MS) acc = 0; // device can't keep up: slow down rather than spiral
+        if (steps > 0) frameFnsRef.current.draw();
+        monitorPerformance(dt);
+      } else {
+        acc = 0;
+        // Menus/pause: the animated backdrop only needs ~30fps
+        if (now - lastIdleDraw > 33) {
+          frameFnsRef.current.draw();
+          lastIdleDraw = now;
+        }
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
 
     return () => {
       window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleResize);
+      ro?.disconnect();
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
-      if (requestRef.current) cancelAnimationFrame(requestRef.current);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      cancelAnimationFrame(raf);
     };
-  }, [gameState, level]);
+  }, []);
+
+  // Drop to low quality automatically if the device can't hold ~45fps
+  const monitorPerformance = (dt: number) => {
+    if (qualityRef.current === 'low') return;
+    const perf = perfRef.current;
+    perf.frames++;
+    perf.time += dt;
+    if (perf.time < 2000) return;
+    const avg = perf.time / perf.frames;
+    perf.frames = 0;
+    perf.time = 0;
+    perf.badWindows = avg > 22 ? perf.badWindows + 1 : 0;
+    if (perf.badWindows >= 2) {
+      qualityRef.current = 'low';
+      setQuality('low');
+      try { localStorage.setItem(QUALITY_KEY, 'low'); } catch {}
+    }
+  };
 
   // Cleanup audio on unmount
   useEffect(() => {
@@ -1233,6 +1382,9 @@ export default function Game() {
       setLevel(CAMPAIGN_LEVELS[campaignLevelIdx].level);
     }
 
+    gameStateRef.current = 'playing';
+    isPausedRef.current = false;
+    perfRef.current = { frames: 0, time: 0, badWindows: 0 };
     setGameState('playing');
     setMenuView('upgrades');
     audioRef.current.startMusic();
@@ -1255,10 +1407,10 @@ export default function Game() {
   };
 
   return (
-    <div className="relative w-full h-screen overflow-hidden bg-black select-none">
+    <div ref={containerRef} className="relative w-full h-[100dvh] overflow-hidden bg-black select-none">
       <canvas
         ref={canvasRef}
-        className="absolute inset-0 block"
+        className="absolute inset-0 block w-full h-full touch-none"
         id="game-canvas"
       />
 
@@ -1275,7 +1427,7 @@ export default function Game() {
             className="absolute top-0 left-0 right-0 p-2 sm:p-4 md:p-6 flex justify-between items-start pointer-events-none"
           >
             <div className="flex flex-col gap-2">
-              <div className="flex items-center gap-1.5 sm:gap-3 bg-black/40 backdrop-blur-md border border-white/10 p-1.5 sm:p-3 rounded-lg sm:rounded-xl">
+              <div className="flex items-center gap-1.5 sm:gap-3 bg-black/60 border border-white/10 p-1.5 sm:p-3 rounded-lg sm:rounded-xl">
                 <Activity className="w-4 h-4 sm:w-5 sm:h-5 text-red-500" />
                 <div className="w-20 sm:w-36 md:w-48 h-1.5 sm:h-2 bg-white/10 rounded-full overflow-hidden">
                   <motion.div
@@ -1286,14 +1438,14 @@ export default function Game() {
                 </div>
                 <span className="font-mono text-[10px] sm:text-sm">{health}/{modifiersRef.current.maxHealth}</span>
               </div>
-              <div className="flex items-center gap-1.5 sm:gap-3 bg-black/40 backdrop-blur-md border border-white/10 p-1.5 sm:p-3 rounded-lg sm:rounded-xl">
+              <div className="flex items-center gap-1.5 sm:gap-3 bg-black/60 border border-white/10 p-1.5 sm:p-3 rounded-lg sm:rounded-xl">
                 <Trophy className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-500" />
                 <span className="font-mono text-sm sm:text-lg font-bold">{score.toLocaleString()}</span>
               </div>
             </div>
 
             <div className="flex flex-col items-end gap-2">
-              <div className="bg-black/40 backdrop-blur-md border border-white/10 px-2 py-1 sm:px-4 sm:py-2 rounded-lg sm:rounded-xl">
+              <div className="bg-black/60 border border-white/10 px-2 py-1 sm:px-4 sm:py-2 rounded-lg sm:rounded-xl">
                 <span className="text-[9px] sm:text-xs uppercase tracking-widest text-white/50 font-semibold">
                   {gameMode === 'campaign' ? 'Mission' : gameMode === 'zen' ? 'Wave' : 'Level'}
                 </span>
@@ -1302,7 +1454,7 @@ export default function Game() {
 
               {/* Time Attack: countdown timer */}
               {gameMode === 'time_attack' && (
-                <div className={`bg-black/40 backdrop-blur-md border px-2 py-1 sm:px-4 sm:py-2 rounded-lg sm:rounded-xl ${
+                <div className={`bg-black/60 border px-2 py-1 sm:px-4 sm:py-2 rounded-lg sm:rounded-xl ${
                   timeAttackTimer <= 10 ? 'border-red-500/50 animate-pulse' : 'border-yellow-500/30'
                 }`}>
                   <span className="text-[9px] sm:text-xs uppercase tracking-widest text-yellow-400/60 font-semibold">Time</span>
@@ -1314,7 +1466,7 @@ export default function Game() {
 
               {/* Campaign: objective */}
               {gameMode === 'campaign' && campaignLevelRef.current?.objectiveText && (
-                <div className="bg-black/40 backdrop-blur-md border border-blue-500/20 px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg sm:rounded-xl max-w-[140px] sm:max-w-[200px]">
+                <div className="bg-black/60 border border-blue-500/20 px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg sm:rounded-xl max-w-[140px] sm:max-w-[200px]">
                   <span className="text-[8px] sm:text-[10px] uppercase tracking-widest text-blue-400/60">Objective</span>
                   <div className="font-mono text-[9px] sm:text-[11px] text-blue-300">{campaignLevelRef.current.objectiveText}</div>
                 </div>
@@ -1322,7 +1474,7 @@ export default function Game() {
 
               {/* Zen: relaxing label */}
               {gameMode === 'zen' && (
-                <div className="bg-black/40 backdrop-blur-md border border-purple-500/20 px-3 py-1.5 rounded-xl">
+                <div className="bg-black/60 border border-purple-500/20 px-3 py-1.5 rounded-xl">
                   <span className="font-mono text-xs text-purple-300/60">Zen Mode</span>
                 </div>
               )}
@@ -1335,73 +1487,21 @@ export default function Game() {
       <AnimatePresence>
         {gameState === 'playing' && isMobile && (
           <motion.div
+            key="touch-controls"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute inset-0 pointer-events-none z-20"
+            className="absolute inset-0 z-10"
           >
-            {/* Virtual Joystick (Left) */}
-            <div className="absolute bottom-16 left-4 sm:bottom-24 sm:left-16 w-24 h-24 sm:w-32 sm:h-32 bg-white/5 backdrop-blur-sm border border-white/10 rounded-full pointer-events-auto touch-none"
-              onPointerDown={(e) => {
-                const rect = e.currentTarget.getBoundingClientRect();
-                const centerX = rect.left + rect.width / 2;
-                const centerY = rect.top + rect.height / 2;
-                
-                const handlePointerMove = (moveEvent: PointerEvent) => {
-                  const dx = moveEvent.clientX - centerX;
-                  const dy = moveEvent.clientY - centerY;
-                  const dist = Math.sqrt(dx * dx + dy * dy);
-                  const maxDist = rect.width / 2;
-                  
-                  virtualControlsRef.current.joystickActive = true;
-                  virtualControlsRef.current.joystickAngle = Math.atan2(dy, dx);
-                  virtualControlsRef.current.joystickDistance = Math.min(dist / maxDist, 1);
-                };
-
-                const handlePointerUp = () => {
-                  virtualControlsRef.current.joystickActive = false;
-                  virtualControlsRef.current.joystickDistance = 0;
-                  window.removeEventListener('pointermove', handlePointerMove);
-                  window.removeEventListener('pointerup', handlePointerUp);
-                };
-
-                window.addEventListener('pointermove', handlePointerMove);
-                window.addEventListener('pointerup', handlePointerUp);
-                
-                // Initial update
-                handlePointerMove(e.nativeEvent);
-              }}
-            >
-              <motion.div 
-                className="absolute top-1/2 left-1/2 w-12 h-12 bg-white/20 border border-white/40 rounded-full -translate-x-1/2 -translate-y-1/2"
-                animate={{
-                  x: virtualControlsRef.current.joystickActive ? Math.cos(virtualControlsRef.current.joystickAngle) * virtualControlsRef.current.joystickDistance * 40 : 0,
-                  y: virtualControlsRef.current.joystickActive ? Math.sin(virtualControlsRef.current.joystickAngle) * virtualControlsRef.current.joystickDistance * 40 : 0,
-                }}
-                transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-              />
-            </div>
-
-            {/* Large Fire Button (Right) */}
-            <div className="absolute bottom-16 right-4 sm:bottom-24 sm:right-16 pointer-events-auto">
-              <button
-                aria-label="Fire antibodies"
-                onPointerDown={() => { virtualControlsRef.current.fire = true; }}
-                onPointerUp={() => { virtualControlsRef.current.fire = false; }}
-                onPointerLeave={() => { virtualControlsRef.current.fire = false; }}
-                className="w-20 h-20 sm:w-24 sm:h-24 bg-emerald-500/20 backdrop-blur-md border border-emerald-500/40 rounded-full flex items-center justify-center active:bg-emerald-500/40 shadow-lg shadow-emerald-500/20 touch-none"
-              >
-                <Zap className="w-10 h-10 text-emerald-400" />
-              </button>
-            </div>
+            <TouchControls controlsRef={virtualControlsRef} />
 
             {/* Pause Button for Mobile */}
             <button
               aria-label="Pause game"
               onClick={() => setIsPaused(true)}
-              className="absolute top-2 right-20 sm:top-6 sm:right-24 p-2 sm:p-3 bg-white/10 backdrop-blur-md border border-white/20 rounded-lg sm:rounded-xl pointer-events-auto active:bg-white/30"
+              className="absolute z-20 top-2 right-20 sm:top-6 sm:right-24 p-2 sm:p-3 bg-white/10 border border-white/20 rounded-lg sm:rounded-xl active:bg-white/30"
             >
-              <Activity className="w-5 h-5" />
+              <Pause className="w-5 h-5" />
             </button>
           </motion.div>
         )}
@@ -1538,7 +1638,7 @@ export default function Game() {
 
               <div className="flex gap-3">
                 <button
-                  onClick={() => { setGameState('menu'); setMenuView('upgrades'); }}
+                  onClick={() => { gameStateRef.current = 'menu'; setGameState('menu'); setMenuView('upgrades'); }}
                   className="flex-1 py-3 bg-white/5 border border-white/10 text-white/60 font-bold rounded-2xl hover:bg-white/10 transition-colors"
                 >
                   MENU
@@ -1566,8 +1666,8 @@ export default function Game() {
       {/* Vignette & Grain Overlay */}
       <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_center,transparent_0%,rgba(0,0,0,0.4)_100%)]" />
       
-      {/* Scanlines Effect */}
-      <div className="absolute inset-0 pointer-events-none opacity-[0.03] bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-[length:100%_2px,3px_100%]" />
+      {/* Scanlines Effect (skipped on low quality — a full-screen blended layer) */}
+      {quality === 'high' && <div className="absolute inset-0 pointer-events-none opacity-[0.03] bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-[length:100%_2px,3px_100%]" />}
     </div>
   );
 }
