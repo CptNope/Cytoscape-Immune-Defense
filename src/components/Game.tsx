@@ -894,7 +894,7 @@ export default function Game() {
 
     // 3. Update Antibodies
     const pathogens = pathogensRef.current;
-    compactInPlace(antibodiesRef.current, a => {
+    compactInPlace<Antibody>(antibodiesRef.current, a => {
       applyVelocity(a);
       a.life--;
       wrapPosition(a.pos, worldRef.current.w, worldRef.current.h);
@@ -1025,10 +1025,10 @@ export default function Game() {
 
       return a.life > 0 && !hit;
     });
-    compactInPlace(pathogensRef.current, p => !p.dead);
+    compactInPlace<Pathogen>(pathogensRef.current, p => !p.dead);
 
     // 4. Update Power-ups
-    compactInPlace(powerUpsRef.current, p => {
+    compactInPlace<PowerUp>(powerUpsRef.current, p => {
       applyVelocity(p);
       p.life--;
       wrapPosition(p.pos, worldRef.current.w, worldRef.current.h);
@@ -1064,14 +1064,14 @@ export default function Game() {
     });
 
     // 5. Update Floating Texts
-    compactInPlace(floatingTextsRef.current, t => {
+    compactInPlace<FloatingText>(floatingTextsRef.current, t => {
       applyVelocity(t);
       t.life--;
       return t.life > 0;
     });
 
     // 6. Update Particles (with cap enforcement)
-    compactInPlace(particlesRef.current, p => {
+    compactInPlace<Particle>(particlesRef.current, p => {
       applyVelocity(p);
       p.life--;
       p.opacity = p.life / 40;
