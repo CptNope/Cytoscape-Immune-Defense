@@ -45,6 +45,10 @@ const localStorageMock = (() => {
 
 Object.defineProperty(globalThis, 'localStorage', { value: localStorageMock });
 
+/**
+ * A profile shaped like a pre-2.0 save (no loadout, cosmetics or boss kills),
+ * which the progression code must keep handling.
+ */
 function freshProfile(): PlayerProfile {
   return {
     xp: 0,
@@ -61,6 +65,8 @@ function freshProfile(): PlayerProfile {
       auto_target: false,
       regeneration: false,
       chain_reaction: false,
+      interferon: false,
+      fever: false,
     },
     stats: {
       totalKills: 0,
@@ -69,8 +75,9 @@ function freshProfile(): PlayerProfile {
       totalRuns: 0,
       totalTimePlayed: 0,
       highestLevel: 0,
+      bossKills: {},
     },
-  };
+  } as unknown as PlayerProfile;
 }
 
 beforeEach(() => {
@@ -429,7 +436,8 @@ describe('cytokine loadout', () => {
   });
 
   it('migrates on load', () => {
-    const old = { ...freshProfile(), cytokines: { auto_target: true, regeneration: true, chain_reaction: true } };
+    // A genuine old save: only the three original cytokines and no new fields
+    const old = { ...freshProfile(), cytokines: { auto_target: true, regeneration: true, chain_reaction: true }, stats: { totalKills: 0, killsByType: {}, totalScore: 0, totalRuns: 0, totalTimePlayed: 0, highestLevel: 0 } };
     localStorageMock.setItem('cytoscape-player-profile', JSON.stringify(old));
     const p = loadProfile();
     expect(p.equippedCytokines).toEqual(['auto_target', 'regeneration']);

@@ -33,7 +33,7 @@ export default function StatsPanel({ profile, onBack }: StatsPanelProps) {
     { key: 'cancer', label: 'Cancer cells', color: 'text-pink-400' },
     { key: 'biofilm', label: 'Biofilms', color: 'text-sky-400' },
   ];
-  const bossesDefeated = Object.values(stats.bossKills ?? {}).reduce((a, b) => a + b, 0);
+  const bossesDefeated = Object.values<number>(stats.bossKills ?? {}).reduce((a, b) => a + b, 0);
 
   return (
     <motion.div

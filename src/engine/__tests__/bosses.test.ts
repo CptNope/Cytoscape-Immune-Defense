@@ -79,7 +79,7 @@ describe('boss rotation', () => {
   });
 });
 
-describe.each(ALL)('%s', (type) => {
+describe.each(ALL)('%s', (type: BossType) => {
   it('runs 3000 steps without NaN, stays on screen and attacks', () => {
     const w = makeWorld(7);
     const boss = spawnBoss(w.ctx, type, { x: 600, y: 200 }, 1);

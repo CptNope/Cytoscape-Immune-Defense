@@ -21,7 +21,7 @@ interface CampaignBriefingProps {
 }
 
 export default function CampaignBriefing({ level, levels, selectedIdx, unlockedIdx, stars, onSelect, onStart, onBack }: CampaignBriefingProps) {
-  const totalStars = Object.values(stars).reduce((a, b) => a + b, 0);
+  const totalStars = Object.values<number>(stars).reduce((a, b) => a + b, 0);
   // Act headings live on the first level of each act
   const actFor = (idx: number) => {
     for (let i = idx; i >= 0; i--) if (levels[i].act) return levels[i].act;

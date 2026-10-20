@@ -1607,7 +1607,7 @@ export default function Game() {
   useEffect(() => {
     if (gameState !== 'gameover') return;
     const finalScore = scoreRef.current;
-    const bosses = Object.values(runBossKillsRef.current).reduce((a, b) => a + b, 0);
+    const bosses = Object.values<number>(runBossKillsRef.current).reduce((a, b) => a + b, 0);
     setRunSummary(s => ({ ...s, bosses }));
     if (finalScore <= 0 && bosses === 0) return;
     const entry: ScoreEntry = { score: finalScore, level: levelRef.current, date: new Date().toLocaleDateString() };
