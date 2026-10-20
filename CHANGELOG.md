@@ -5,6 +5,23 @@ All notable changes to Cytoscape: Immune Defense will be documented in this file
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.11.0] - 2026-10-20
+
+### Changed
+- **Smooth motion on high-refresh screens** — the renderer now interpolates every entity (and the ship's rotation) between the last two 60Hz simulation steps, so 90/120/144Hz displays and uneven frame pacing get fluid movement instead of repeated frames. Screen wraps and teleports are detected and not smeared
+- **Everything gameplay-timed runs on a game clock** — fire rate, prion flicker and "time played" used the wall clock (`Date.now()`); they now advance exactly one step per simulation update, so they're identical on every device, freeze while paused, and fire rate no longer speeds up relative to the game when a slow device has to drop time
+- **Less garbage-collection stutter** — bullets, particles, power-ups and floating texts are updated in place instead of building new arrays with `.filter()` every frame, and killed pathogens are removed in one pass per step instead of re-filtering the whole list on every kill
+- **Particle budget** — explosions now respect the particle cap up front (90 on low quality, half the particles per explosion) instead of spawning and trimming
+- **Cheaper labels** — pathogen type labels are drawn in one batched pass with the font set once, and label strings are cached
+- Collision checks use squared distances (no `sqrt` per bullet × pathogen)
+
+### Added
+- CI workflow: typecheck, unit tests and build run on every pull request
+- Unit tests for interpolation and in-place compaction
+
+### Fixed
+- Type error: `applyVelocity` / `applyFriction` now accept anything with `pos` and `vel` (floating texts)
+
 ## [1.10.0] - 2026-10-20
 
 ### Performance (low-end tablets & phones)

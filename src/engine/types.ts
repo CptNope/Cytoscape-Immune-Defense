@@ -13,6 +13,8 @@ export interface Entity {
   vel: Vector;
   radius: number;
   rotation: number;
+  /** Position at the start of the latest simulation step (for render interpolation). */
+  prev?: Vector;
 }
 
 export type PathogenType = 'virus' | 'bacteria' | 'parasite' | 'fungus' | 'prion' | 'cancer' | 'biofilm';
@@ -41,6 +43,10 @@ export interface Pathogen extends Entity {
   phase?: number;           // boss phase (for multi-phase bosses)
   phaseTimer?: number;      // frames in current phase
   segments?: Vector[];       // for parasitic worm segments
+  /** Killed this step; removed from the list at the end of the step. */
+  dead?: boolean;
+  /** Cached display label, e.g. "Bacteria (armored)". */
+  label?: string;
 }
 
 export interface Antibody extends Entity {
@@ -64,6 +70,7 @@ export interface PowerUp extends Entity {
 export interface FloatingText {
   id: number;
   pos: Vector;
+  prev?: Vector;
   vel: Vector;
   text: string;
   color: string;

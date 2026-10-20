@@ -326,15 +326,7 @@ function drawPathogens(ctx: CanvasRenderingContext2D, pathogens: Pathogen[]): vo
       ctx.globalAlpha = p.opacity;
     }
 
-    let color = '#ef4444'; // bacteria
-    if (p.type === 'virus') color = '#f59e0b';
-    if (p.type === 'parasite') color = '#a855f7';
-    if (p.type === 'fungus') color = '#10b981';
-    if (p.type === 'prion') color = '#94a3b8';
-    if (p.type === 'cancer') color = '#f472b6';
-    if (p.type === 'biofilm') color = '#38bdf8';
-    if (p.variant === 'swift') color = '#38bdf8';
-    if (p.variant === 'stalker') color = '#ec4899';
+    const color = pathogenColor(p);
 
     ctx.strokeStyle = color;
     ctx.shadowColor = color;
@@ -391,24 +383,43 @@ function drawPathogens(ctx: CanvasRenderingContext2D, pathogens: Pathogen[]): vo
 
     ctx.restore();
 
-    // Entity type label (drawn un-rotated, below the entity)
-    if (!p.isBoss) {
-      ctx.save();
-      ctx.globalAlpha = 0.55;
-      ctx.fillStyle = color;
-      ctx.font = 'bold 9px monospace';
-      ctx.textAlign = 'center';
-      const typeName = p.type.charAt(0).toUpperCase() + p.type.slice(1);
-      const variantSuffix = p.variant ? ` (${p.variant})` : '';
-      ctx.fillText(typeName + variantSuffix, p.pos.x, p.pos.y + p.radius + 12);
-      ctx.restore();
-    }
-
     // Boss health bar (drawn un-rotated, above the boss)
     if (p.isBoss && p.maxHealth > 0) {
       drawBossHealthBar(ctx, p);
     }
   });
+
+  // Type labels in one batched pass: font/alignment are set once instead of
+  // once per pathogen, and the label string is built once per pathogen.
+  ctx.save();
+  ctx.globalAlpha = 0.55;
+  ctx.font = 'bold 9px monospace';
+  ctx.textAlign = 'center';
+  for (let i = 0; i < pathogens.length; i++) {
+    const p = pathogens[i];
+    if (p.isBoss) continue;
+    if (p.label === undefined) {
+      const typeName = p.type.charAt(0).toUpperCase() + p.type.slice(1);
+      p.label = typeName + (p.variant ? ` (${p.variant})` : '');
+    }
+    ctx.fillStyle = pathogenColor(p);
+    ctx.fillText(p.label, p.pos.x, p.pos.y + p.radius + 12);
+  }
+  ctx.restore();
+}
+
+function pathogenColor(p: Pathogen): string {
+  if (p.variant === 'swift') return '#38bdf8';
+  if (p.variant === 'stalker') return '#ec4899';
+  switch (p.type) {
+    case 'virus': return '#f59e0b';
+    case 'parasite': return '#a855f7';
+    case 'fungus': return '#10b981';
+    case 'prion': return '#94a3b8';
+    case 'cancer': return '#f472b6';
+    case 'biofilm': return '#38bdf8';
+    default: return '#ef4444';
+  }
 }
 
 function drawParasite(ctx: CanvasRenderingContext2D, p: Pathogen, _color: string): void {

@@ -29,6 +29,7 @@ import {
   randomRange, distance, circlesCollide, wrapPosition, applyVelocity, applyFriction,
   angleToTarget, speed, clampSpeed,
   loadTopScores, saveTopScore,
+  snapshotPositions, PositionInterpolator, lerpAngle, compactInPlace,
   render,
   AudioEngine, haptic, HAPTIC_DAMAGE, HAPTIC_POWERUP, HAPTIC_BOMB,
   loadProfile, awardXp, recordRunStats, computeModifiers,
@@ -43,6 +44,7 @@ import TouchControls from './TouchControls';
 
 const STEP_MS = 1000 / 60;
 const MAX_STEPS_PER_FRAME = 4;
+const LOW_QUALITY_MAX_PARTICLES = 90;
 /** Short side of the play area in world units; smaller screens zoom out to fit it. */
 const WORLD_MIN_DIM = 640;
 /** Never zoom out further than this (keeps entities readable on tiny phones). */
@@ -79,6 +81,16 @@ export default function Game() {
   const isPausedRef = useRef(false);
   const gameStateRef = useRef<'menu' | 'playing' | 'gameover'>('menu');
   const timeAttackSecsRef = useRef(-1);
+
+  // Game clock: advances exactly STEP_MS per simulation step, so anything timed
+  // with it (fire rate, flicker, time played) runs at the same game speed on
+  // every device and stops while paused.
+  const gameTimeRef = useRef(0);
+
+  // Render interpolation between simulation steps (smooth on 90/120/144Hz)
+  const interpolatorRef = useRef(new PositionInterpolator());
+  const alphaRef = useRef(1);
+  const shipPrevRotationRef = useRef(-Math.PI / 2);
 
   // Viewport → world mapping. The world is never smaller than WORLD_MIN_DIM
   // units on its short side, so phones see the same play area as tablets
@@ -170,8 +182,10 @@ export default function Game() {
       rotation: -Math.PI / 2,
       thrusting: false,
       turning: 0,
-      lastShot: 0
+      lastShot: -Infinity
     };
+    shipPrevRotationRef.current = shipRef.current.rotation;
+    gameTimeRef.current = 0;
 
     pathogensRef.current = [];
     antibodiesRef.current = [];
@@ -199,7 +213,7 @@ export default function Game() {
     // Reset run tracking
     runKillsRef.current = 0;
     runKillsByTypeRef.current = {};
-    runStartRef.current = Date.now();
+    runStartRef.current = 0; // measured in game time
     regenTimerRef.current = 0;
 
     // Mode-specific initial spawning
@@ -527,7 +541,15 @@ export default function Game() {
     }
   };
 
+  /** Particle budget: lower on low quality so explosions stay cheap. */
+  const particleCap = () => (qualityRef.current === 'low' ? LOW_QUALITY_MAX_PARTICLES : MAX_PARTICLES);
+
   const createExplosion = (pos: Vector, color: string, count = 10) => {
+    const cap = particleCap();
+    if (qualityRef.current === 'low') count = Math.ceil(count * 0.5);
+    const room = cap - particlesRef.current.length;
+    if (room <= 0) return;
+    count = Math.min(count, room);
     for (let i = 0; i < count; i++) {
       particlesRef.current.push({
         id: nextIdRef.current++,
@@ -597,6 +619,18 @@ export default function Game() {
 
     const ship = shipRef.current;
 
+    // Remember where everything was, for render interpolation
+    snapshotPositions(pathogensRef.current);
+    snapshotPositions(antibodiesRef.current);
+    snapshotPositions(particlesRef.current);
+    snapshotPositions(powerUpsRef.current);
+    snapshotPositions(floatingTextsRef.current);
+    snapshotPositions([ship]);
+    shipPrevRotationRef.current = ship.rotation;
+
+    gameTimeRef.current += STEP_MS;
+    const now = gameTimeRef.current;
+
     // 1. Update Ship
     let isThrusting = false;
 
@@ -646,7 +680,7 @@ export default function Game() {
 
     if (isThrusting) {
       // Thrust particles (capped)
-      if (Math.random() > 0.5 && particlesRef.current.length < MAX_PARTICLES) {
+      if (Math.random() > 0.5 && particlesRef.current.length < particleCap()) {
         particlesRef.current.push({
           id: nextIdRef.current++,
           pos: {
@@ -679,7 +713,7 @@ export default function Game() {
     // Shooting
     const baseShotDelay = modifiersRef.current.shotDelay;
     const shotDelay = activePowerUpsRef.current.rapidFire > 0 ? Math.max(40, baseShotDelay * 0.4) : baseShotDelay;
-    if ((keysRef.current[' '] || keysRef.current['f'] || virtualControlsRef.current.fire) && Date.now() - ship.lastShot > shotDelay) {
+    if ((keysRef.current[' '] || keysRef.current['f'] || virtualControlsRef.current.fire) && now - ship.lastShot >= shotDelay) {
       antibodiesRef.current.push({
         id: nextIdRef.current++,
         pos: {
@@ -694,7 +728,7 @@ export default function Game() {
         rotation: ship.rotation,
         life: BULLET_LIFE
       });
-      ship.lastShot = Date.now();
+      ship.lastShot = now;
       audioRef.current.playFire();
     }
 
@@ -712,7 +746,7 @@ export default function Game() {
 
       // Prion: flicker opacity
       if (p.type === 'prion') {
-        p.opacity = PRION_OPACITY + Math.sin(Date.now() * 0.01 + p.id) * 0.15;
+        p.opacity = PRION_OPACITY + Math.sin(now * 0.01 + p.id) * 0.15;
       }
 
       // Cancer: grow and spawn copies
@@ -859,15 +893,22 @@ export default function Game() {
     });
 
     // 3. Update Antibodies
-    antibodiesRef.current = antibodiesRef.current.filter(a => {
+    const pathogens = pathogensRef.current;
+    compactInPlace<Antibody>(antibodiesRef.current, a => {
       applyVelocity(a);
       a.life--;
       wrapPosition(a.pos, worldRef.current.w, worldRef.current.h);
 
       // Collision with Pathogens
       let hit = false;
-      pathogensRef.current.forEach(p => {
-        if (!hit && distance(a.pos, p.pos) < p.radius) {
+      // Index loop over the length at the start: pathogens spawned by splits
+      // this step can't be hit by the same antibody (matches previous behavior)
+      for (let pi = 0, plen = pathogens.length; pi < plen && !hit; pi++) {
+        const p = pathogens[pi];
+        if (p.dead) continue;
+        const ddx = a.pos.x - p.pos.x;
+        const ddy = a.pos.y - p.pos.y;
+        if (ddx * ddx + ddy * ddy < p.radius * p.radius) {
           hit = true;
           
           let damage = modifiersRef.current.bulletDamage * (activePowerUpsRef.current.damageBoost > 0 ? 2 : 1);
@@ -945,7 +986,7 @@ export default function Game() {
             // Chain reaction: damage nearby pathogens
             if (modifiersRef.current.hasChainReaction) {
               pathogensRef.current.forEach(nearby => {
-                if (nearby.id !== p.id && distance(p.pos, nearby.pos) < CHAIN_REACTION_RADIUS) {
+                if (!nearby.dead && nearby.id !== p.id && distance(p.pos, nearby.pos) < CHAIN_REACTION_RADIUS) {
                   nearby.health -= CHAIN_REACTION_DAMAGE;
                   createExplosion(nearby.pos, '#fbbf24', 3);
                 }
@@ -977,16 +1018,17 @@ export default function Game() {
                 });
               });
             }
-            pathogensRef.current = pathogensRef.current.filter(path => path.id !== p.id);
+            p.dead = true; // removed in one pass below instead of re-filtering per kill
           }
         }
-      });
+      }
 
       return a.life > 0 && !hit;
     });
+    compactInPlace<Pathogen>(pathogensRef.current, p => !p.dead);
 
     // 4. Update Power-ups
-    powerUpsRef.current = powerUpsRef.current.filter(p => {
+    compactInPlace<PowerUp>(powerUpsRef.current, p => {
       applyVelocity(p);
       p.life--;
       wrapPosition(p.pos, worldRef.current.w, worldRef.current.h);
@@ -1022,22 +1064,19 @@ export default function Game() {
     });
 
     // 5. Update Floating Texts
-    floatingTextsRef.current = floatingTextsRef.current.filter(t => {
+    compactInPlace<FloatingText>(floatingTextsRef.current, t => {
       applyVelocity(t);
       t.life--;
       return t.life > 0;
     });
 
     // 6. Update Particles (with cap enforcement)
-    particlesRef.current = particlesRef.current.filter(p => {
+    compactInPlace<Particle>(particlesRef.current, p => {
       applyVelocity(p);
       p.life--;
       p.opacity = p.life / 40;
       return p.life > 0;
     });
-    if (particlesRef.current.length > MAX_PARTICLES) {
-      particlesRef.current = particlesRef.current.slice(-MAX_PARTICLES);
-    }
 
     // 5. Level Progression
     if (pathogensRef.current.length === 0) {
@@ -1171,25 +1210,45 @@ export default function Game() {
     if (!ctx) return;
     const world = worldRef.current;
 
-    render(ctx, canvas, {
-      ship: shipRef.current,
-      pathogens: pathogensRef.current,
-      antibodies: antibodiesRef.current,
-      particles: particlesRef.current,
-      powerUps: powerUpsRef.current,
-      floatingTexts: floatingTextsRef.current,
-      activePowerUps: activePowerUpsRef.current,
-      shake: shakeRef.current,
-      shakeAngle: shakeAngleRef.current,
-      flash: flashRef.current,
-      gameState: gameStateRef.current,
-      shipHealth: healthRef.current,
-      shipMaxHealth: modifiersRef.current.maxHealth,
-      viewWidth: world.w,
-      viewHeight: world.h,
-      pixelScale: world.pixelScale,
-      quality: qualityRef.current,
-    });
+    // Draw entities part-way between their last two simulated positions
+    const interpolate = gameStateRef.current === 'playing';
+    const ship = shipRef.current;
+    const realRotation = ship.rotation;
+    if (interpolate) {
+      const alpha = isPausedRef.current ? 1 : alphaRef.current;
+      interpolatorRef.current.apply([
+        pathogensRef.current, antibodiesRef.current, particlesRef.current,
+        powerUpsRef.current, floatingTextsRef.current, [ship],
+      ], alpha);
+      ship.rotation = lerpAngle(shipPrevRotationRef.current, realRotation, alpha);
+    }
+
+    try {
+      render(ctx, canvas, {
+        ship: shipRef.current,
+        pathogens: pathogensRef.current,
+        antibodies: antibodiesRef.current,
+        particles: particlesRef.current,
+        powerUps: powerUpsRef.current,
+        floatingTexts: floatingTextsRef.current,
+        activePowerUps: activePowerUpsRef.current,
+        shake: shakeRef.current,
+        shakeAngle: shakeAngleRef.current,
+        flash: flashRef.current,
+        gameState: gameStateRef.current,
+        shipHealth: healthRef.current,
+        shipMaxHealth: modifiersRef.current.maxHealth,
+        viewWidth: world.w,
+        viewHeight: world.h,
+        pixelScale: world.pixelScale,
+        quality: qualityRef.current,
+      });
+    } finally {
+      if (interpolate) {
+        interpolatorRef.current.restore();
+        ship.rotation = realRotation;
+      }
+    }
   };
 
   // Always call the latest update/draw closures from the rAF loop
@@ -1281,7 +1340,10 @@ export default function Game() {
           if (gameStateRef.current !== 'playing') break;
         }
         if (acc > STEP_MS) acc = 0; // device can't keep up: slow down rather than spiral
-        if (steps > 0) frameFnsRef.current.draw();
+        alphaRef.current = acc / STEP_MS;
+        // High quality: draw every display refresh (interpolated, smooth on
+        // 120Hz). Low quality: only draw when the simulation advanced.
+        if (steps > 0 || qualityRef.current === 'high') frameFnsRef.current.draw();
         monitorPerformance(dt);
       } else {
         acc = 0;
@@ -1346,7 +1408,7 @@ export default function Game() {
       setLastScoreRank(rank >= 0 ? rank : null);
 
       // Award XP & record run stats
-      const timePlayed = Math.round((Date.now() - runStartRef.current) / 1000);
+      const timePlayed = Math.round((gameTimeRef.current - runStartRef.current) / 1000);
       let p = awardXp(profile, score);
       p = recordRunStats(p, {
         kills: runKillsRef.current,
