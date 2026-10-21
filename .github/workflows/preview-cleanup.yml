@@ -1,0 +1,24 @@
+name: Preview cleanup
+
+# Deletes a pull request's hidden preview ref once the PR is closed or merged.
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete preview ref
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          REPO: ${{ github.repository }}
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git check-ref-format "refs/previews/${HEAD_REF}"
+          git init -q
+          git push -q "https://x-access-token:${TOKEN}@github.com/${REPO}.git" ":refs/previews/${HEAD_REF}" || echo "No preview ref to delete"

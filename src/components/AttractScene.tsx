@@ -52,9 +52,6 @@ export default function AttractScene({ paused = false }: Props) {
       else resizeAttract(scene, world.w, world.h);
     };
     resize();
-    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(resize) : null;
-    ro?.observe(canvas);
-    window.addEventListener('resize', resize);
 
     const draw = () => {
       if (!scene) return;
@@ -79,19 +76,26 @@ export default function AttractScene({ paused = false }: Props) {
     };
 
     if (reduce) {
-      // A still frame: let the scene settle, then draw it once (and on resize)
+      // A still frame: let the scene settle, then draw it once. Resizing
+      // clears the canvas, so every resize redraws it.
       for (let i = 0; i < 90; i++) stepAttract(scene!);
       const still = () => { resize(); draw(); };
+      const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(still) : null;
+      ro?.observe(canvas);
+      window.addEventListener('resize', still);
       // Sprites rasterise asynchronously: redraw a few times as they arrive
       const timers = [0, 150, 400, 900].map(ms => window.setTimeout(draw, ms));
-      window.addEventListener('resize', still);
       return () => {
         timers.forEach(clearTimeout);
         ro?.disconnect();
-        window.removeEventListener('resize', resize);
         window.removeEventListener('resize', still);
       };
     }
+
+    // Animated: the next frame redraws after any resize
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(resize) : null;
+    ro?.observe(canvas);
+    window.addEventListener('resize', resize);
 
     let raf = 0;
     let last = performance.now();

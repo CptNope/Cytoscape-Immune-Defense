@@ -157,7 +157,8 @@ export default function LandingPage({ onPlay }: Props) {
             >
               Immune Defense Protocol
             </motion.p>
-            <h1 aria-label={TITLE} className="font-black italic uppercase tracking-tighter leading-[0.85] text-[clamp(3.4rem,15vw,10rem)] flex">
+            <h1 className="font-black italic uppercase tracking-tighter leading-[0.85] text-[clamp(3.4rem,15vw,10rem)] flex">
+              <span className="sr-only">Cytoscape: Immune Defense</span>
               {TITLE.split('').map((ch, i) => (
                 <motion.span
                   key={i}
@@ -216,7 +217,7 @@ export default function LandingPage({ onPlay }: Props) {
             </motion.button>
           </motion.section>
 
-          <main className="relative max-w-6xl mx-auto px-4 sm:px-6 space-y-28 sm:space-y-36 pb-24">
+          <div className="relative max-w-6xl mx-auto px-4 sm:px-6 space-y-28 sm:space-y-36 pb-24">
             {/* How to play */}
             <section id="how" className="scroll-mt-20">
               <Reveal root={scrollRef} stagger className="space-y-10">
@@ -372,7 +373,7 @@ export default function LandingPage({ onPlay }: Props) {
                 <motion.div variants={item}><PlayButton onPlay={onPlay} label="Start your first wave" big /></motion.div>
               </Reveal>
             </section>
-          </main>
+          </div>
 
           <footer className="relative border-t border-white/10 bg-[#0a0505]/80">
             <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 flex flex-wrap items-center justify-between gap-4 text-sm text-white/55">

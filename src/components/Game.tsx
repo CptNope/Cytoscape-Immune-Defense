@@ -109,7 +109,7 @@ interface Banner {
   color: string;
 }
 
-export default function Game({ onHome }: { onHome?: () => void } = {}) {
+export default function Game({ onHome, onRunningChange }: { onHome?: () => void; onRunningChange?: (running: boolean) => void } = {}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [gameState, setGameState] = useState<'menu' | 'playing' | 'gameover'>('menu');
   const [score, setScore] = useState(0);
@@ -1635,6 +1635,9 @@ export default function Game({ onHome }: { onHome?: () => void } = {}) {
   };
 
   // Always call the latest update/draw closures from the rAF loop
+  // Let the app know when a run is in progress (so Back doesn't abandon it)
+  useEffect(() => { onRunningChange?.(gameState === 'playing'); }, [gameState, onRunningChange]);
+
   const frameFnsRef = useRef({ update, draw });
   frameFnsRef.current = { update, draw };
 

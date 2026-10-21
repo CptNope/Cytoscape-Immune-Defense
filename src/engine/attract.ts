@@ -68,6 +68,7 @@ export function createAttract(w: number, h: number, rng: () => number = Math.ran
 export function resizeAttract(s: AttractState, w: number, h: number): void {
   s.w = w;
   s.h = h;
+  s.wander = { x: Math.min(s.wander.x, w * 0.8), y: Math.min(s.wander.y, h * 0.8) };
 }
 
 function pickType(r: number): { type: PathogenType; variant?: Pathogen['variant'] } {
@@ -95,8 +96,9 @@ function spawn(s: AttractState, anywhere = false, parent?: Pathogen): void {
   if (parent) pos = { ...parent.pos };
   else if (anywhere) {
     // Keep the very first pathogens off the T-cell
+    let tries = 0;
     do pos = { x: r() * s.w, y: r() * s.h };
-    while (Math.hypot(pos.x - s.ship.pos.x, pos.y - s.ship.pos.y) < 160 && r() < 0.95);
+    while (Math.hypot(pos.x - s.ship.pos.x, pos.y - s.ship.pos.y) < 160 && ++tries < 20);
   } else {
     // Drift in from a random edge
     const edge = Math.floor(r() * 4);
