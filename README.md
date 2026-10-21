@@ -6,10 +6,10 @@
 A cellular biology themed Asteroids-style arcade game where you pilot a **T-cell** through the bloodstream, defending the host against waves of invading pathogens.
 
 [![Deploy to GitHub Pages](https://github.com/CptNope/Cytoscape-Immune-Defense/actions/workflows/deploy.yml/badge.svg)](https://github.com/CptNope/Cytoscape-Immune-Defense/actions/workflows/deploy.yml)
-![Version](https://img.shields.io/badge/version-2.2.0-emerald)
+![Version](https://img.shields.io/badge/version-2.3.0-emerald)
 ![License](https://img.shields.io/badge/license-Apache--2.0-blue)
 
-**[Play Now](https://cptnope.github.io/Cytoscape-Immune-Defense/)** — Installable as a PWA on any device
+**[Play Now](https://cptnope.github.io/Cytoscape-Immune-Defense/)** — Installable as a PWA on any device · [Skip the intro](https://cptnope.github.io/Cytoscape-Immune-Defense/#play)
 
 [Changelog](CHANGELOG.md) · [Roadmap](ROADMAP.md)
 
