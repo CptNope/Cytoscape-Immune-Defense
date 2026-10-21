@@ -8,6 +8,8 @@ on:
 jobs:
   check:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write   # to publish the preview build ref below
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -37,3 +39,14 @@ jobs:
           name: preview-build
           path: dist
           retention-days: 7
+
+      # The built site as a hidden git ref (not a branch), so it can be
+      # fetched and checked with plain git: git fetch origin refs/previews/<branch>
+      - name: Publish preview build ref
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        working-directory: dist
+        run: |
+          git init -q
+          git add -A
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -qm "Preview build of ${{ github.event.pull_request.head.sha }}"
+          git push -qf "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" HEAD:refs/previews/${{ github.head_ref }}
