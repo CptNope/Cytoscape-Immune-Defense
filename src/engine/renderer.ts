@@ -40,6 +40,10 @@ const PALETTE_COLORBLIND: Record<string, string> = {
 };
 let palette = PALETTE_DEFAULT;
 
+/** Seconds a pathogen's name label shows before fading, and the fade time. */
+const LABEL_SECONDS = 3;
+const LABEL_FADE = 0.8;
+
 /** Render clock (seconds) and time since the previous frame, for animation. */
 let renderNow = 0;
 let frameDt = 0;
@@ -273,44 +277,50 @@ function drawParticles(ctx: CanvasRenderingContext2D, particles: Particle[]): vo
   ctx.globalAlpha = 1;
 }
 
+const POWERUP_ART: Record<PowerUp['type'], { art: ArtId; color: string; label: string }> = {
+  rapid_fire: { art: 'pu_rapid', color: '#60a5fa', label: 'Rapid Fire' },
+  shield: { art: 'pu_shield', color: '#a855f7', label: 'Shield' },
+  damage_boost: { art: 'pu_damage', color: '#fbbf24', label: 'Dmg Boost' },
+  bomb: { art: 'pu_purge', color: '#ef4444', label: 'Purge' },
+};
+/** Steps of life left when a power-up starts blinking before it disappears. */
+const POWERUP_BLINK = 120;
+
 function drawPowerUps(ctx: CanvasRenderingContext2D, powerUps: PowerUp[]): void {
-  powerUps.forEach(p => {
+  for (let i = 0; i < powerUps.length; i++) {
+    const p = powerUps[i];
+    const def = POWERUP_ART[p.type] ?? POWERUP_ART.bomb;
+    // About to expire: blink faster and faster
+    if (p.life < POWERUP_BLINK && Math.floor(renderNow * (4 + (POWERUP_BLINK - p.life) / 15)) % 2 === 0) continue;
+    const st = motionOf(p, renderNow, 0, 0.2);
+    const bob = 1 + 0.08 * Math.sin(renderNow * 4 + p.id);
+    const size = spawnScale(st, renderNow) * bob;
     ctx.save();
     ctx.translate(p.pos.x, p.pos.y);
-    ctx.rotate(Date.now() * 0.002);
-
-    let color = '#ffffff';
-    if (p.type === 'rapid_fire') color = '#60a5fa';
-    if (p.type === 'shield') color = '#a855f7';
-    if (p.type === 'damage_boost') color = '#fbbf24';
-    if (p.type === 'bomb') color = '#ef4444';
-
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.rect(-8, -8, 16, 16);
-    ctx.stroke();
-
-    // Icon
-    ctx.font = '12px Arial';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillStyle = color;
-    const icon = p.type === 'rapid_fire' ? '⚡' : p.type === 'shield' ? '🛡️' : p.type === 'damage_boost' ? '🔥' : '💣';
-    ctx.fillText(icon, 0, 0);
-
+    ctx.rotate(renderNow * 0.8 + p.id);
+    ctx.scale(size, size);
+    artColors.main = def.color;
+    artColors.alt = def.color;
+    anim.seed = p.id;
+    anim.speed = 0;
+    anim.level = 0;
+    if (!drawArt(ctx, def.art, 0, artColors, 13, pxScale)) drawPlaceholder(ctx, 10, def.color);
     ctx.restore();
+  }
 
-    // Power-up label
-    ctx.save();
-    ctx.globalAlpha = 0.6;
-    ctx.fillStyle = color;
-    ctx.font = 'bold 8px monospace';
-    ctx.textAlign = 'center';
-    const pLabel = p.type === 'rapid_fire' ? 'Rapid Fire' : p.type === 'shield' ? 'Shield' : p.type === 'damage_boost' ? 'Dmg Boost' : 'Bomb';
-    ctx.fillText(pLabel, p.pos.x, p.pos.y + 16);
-    ctx.restore();
-  });
+  // Labels in one pass
+  if (powerUps.length === 0) return;
+  ctx.save();
+  ctx.globalAlpha = 0.6;
+  ctx.font = 'bold 8px monospace';
+  ctx.textAlign = 'center';
+  for (let i = 0; i < powerUps.length; i++) {
+    const p = powerUps[i];
+    const def = POWERUP_ART[p.type] ?? POWERUP_ART.bomb;
+    ctx.fillStyle = def.color;
+    ctx.fillText(def.label, p.pos.x, p.pos.y + 22);
+  }
+  ctx.restore();
 }
 
 function drawFloatingTexts(ctx: CanvasRenderingContext2D, texts: FloatingText[]): void {
@@ -456,10 +466,19 @@ function drawPathogens(ctx: CanvasRenderingContext2D, pathogens: Pathogen[]): vo
     anim.seed = p.id * 1.37;
     anim.speed = speed;
     anim.level = artLevel(p);
-    // Big targets flash softly so sustained fire doesn't wash them out
-    const flash = hit * (p.radius > 30 ? 0.35 : 0.8);
-    if (!drawArt(ctx, art, p.id, artColors, p.radius, pxScale, { flash })) {
+    if (!drawArt(ctx, art, p.id, artColors, p.radius, pxScale)) {
       drawPlaceholder(ctx, p.radius, color);
+    }
+    // Hit flash: one cheap translucent disc (big targets flash softly so
+    // sustained fire doesn't wash them out)
+    if (hit > 0) {
+      const ga = ctx.globalAlpha;
+      ctx.globalAlpha = ga * hit * (p.radius > 30 ? 0.22 : 0.5);
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(0, 0, p.radius * 0.92, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = ga;
     }
     if (p.type === 'host_rbc') {
       // Ring-stage tell and cracks follow the cell's pop-in and squash
@@ -558,13 +577,18 @@ function drawPathogens(ctx: CanvasRenderingContext2D, pathogens: Pathogen[]): vo
 
   // Type labels in one batched pass: font/alignment are set once instead of
   // once per pathogen, and the label string is built once per pathogen.
+  // Each label fades out a few seconds after its pathogen appears: the art
+  // identifies it, and drawing dozens of text labels is costly on phones.
   ctx.save();
-  ctx.globalAlpha = 0.55;
   ctx.font = 'bold 9px monospace';
   ctx.textAlign = 'center';
   for (let i = 0; i < pathogens.length; i++) {
     const p = pathogens[i];
     if (p.isBoss || p.hidden) continue;
+    const age = renderNow - motionOf(p, renderNow, p.rotation).born;
+    const fade = age < LABEL_SECONDS ? 1 : 1 - (age - LABEL_SECONDS) / LABEL_FADE;
+    if (fade <= 0) continue;
+    ctx.globalAlpha = 0.55 * fade;
     if (p.label === undefined) {
       const typeName = TYPE_LABELS[p.type] ?? (p.type.charAt(0).toUpperCase() + p.type.slice(1));
       p.label = typeName + (p.variant ? ` (${p.variant})` : '');
@@ -629,7 +653,15 @@ function warmSprites(state: RenderState): void {
   for (const [id, key, r] of WARM_ART) {
     artColors.main = palette[key];
     artColors.alt = id === 'biofilm' ? palette.bacteria : palette[key];
-    for (let v = 0; v < 3; v++) preloadArt(id, artColors, r, pxScale, v, lowDetail);
+    for (let v = 0; v < 3; v++) {
+      // The sizes waves and split children come in, so none pop in as circles
+      for (const k of [0.5, 1, 1.6]) preloadArt(id, artColors, r * k, pxScale, v, lowDetail);
+    }
+  }
+  for (const def of Object.values(POWERUP_ART)) {
+    artColors.main = def.color;
+    artColors.alt = def.color;
+    preloadArt(def.art, artColors, 13, pxScale, 0, lowDetail);
   }
   const cell = state.cellType ?? 'killer_t';
   // The player's cell, plus its red low-health and critical colours

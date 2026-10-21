@@ -5,6 +5,32 @@ All notable changes to Cytoscape: Immune Defense will be documented in this file
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0] - 2026-10-21 — Selection Pressure
+
+### Added
+- **Adaptive resistance**:
+  - Pathogens evolve to match your strength. The game estimates your damage output from upgrades, immune memory, cell type, equipped cytokines and the mutations you've drafted this run
+  - Enemy health scales with about 0.7× your power, so a stronger build still kills noticeably faster without melting everything. Speed rises a little (up to +30%), there's a gentle wave ramp, and hits land harder on tougher hosts
+  - Bosses scale from the same estimate. Shown in the HUD as **Resistance ×N**, with a "PATHOGENS ADAPTED" note when it jumps. Zen mode never scales
+- **On-screen limits that keep the chaos**:
+  - Pathogens, antibodies, enemy projectiles, hazards and particles have limits, higher on capable devices and lower on weaker ones
+  - Wave pathogens over the limit queue up as **reinforcements** that stream in as you kill, so big waves keep their full size
+  - At the limit, pathogens split into fewer pieces and the oldest antibodies fizzle out
+- **Load governor**: if frames start taking too long, the limits tighten automatically (down to half), then relax again once the device keeps up
+- **Power-ups redrawn as immune molecules**, spinning and bobbing in, and blinking before they expire:
+  - Rapid Fire is interleukin-2 (a four-helix bundle)
+  - Shield is a mucin sugar coat
+  - Damage Boost is a perforin pore
+  - System Purge is a cytokine storm
+
+### Fixed
+- **Late-game freezes**: waves grew without limit and every kill could spawn more shots (Complement Cascade, NK drones, side shots), so one step could take longer than a frame and the game never caught up
+- **Chain Reaction could cascade across the whole screen in one step**. It now hits at most 8 pathogens per kill, and only two links deep
+
+### Changed
+- Pathogen name labels fade out a few seconds after each pathogen appears (the artwork identifies them; dozens of text labels were costly to draw)
+- Hit flash is a single translucent overlay instead of a second sprite draw
+
 ## [2.1.0] - 2026-10-21 — Under the Microscope
 
 ### Changed

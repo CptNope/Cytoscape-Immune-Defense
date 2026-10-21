@@ -6,7 +6,7 @@
 A cellular biology themed Asteroids-style arcade game where you pilot a **T-cell** through the bloodstream, defending the host against waves of invading pathogens.
 
 [![Deploy to GitHub Pages](https://github.com/CptNope/Cytoscape-Immune-Defense/actions/workflows/deploy.yml/badge.svg)](https://github.com/CptNope/Cytoscape-Immune-Defense/actions/workflows/deploy.yml)
-![Version](https://img.shields.io/badge/version-2.1.0-emerald)
+![Version](https://img.shields.io/badge/version-2.2.0-emerald)
 ![License](https://img.shields.io/badge/license-Apache--2.0-blue)
 
 **[Play Now](https://cptnope.github.io/Cytoscape-Immune-Defense/)** — Installable as a PWA on any device
@@ -85,7 +85,8 @@ Destroyed pathogens have a 15% chance to drop a power-up:
 
 ### Mechanics
 
-- **Wave System** — Clear all pathogens to advance to the next level; each wave spawns more enemies with increased speed
+- **Wave System** — Clear all pathogens to advance to the next level; each wave spawns more enemies with increased speed. Big waves stream in as reinforcements once the screen is full, so the game stays smooth on every device
+- **Adaptive Resistance** — Pathogens evolve to match your strength: upgrades, immune memory, your cell type and the mutations you draft all raise their health (shown as *Resistance ×N*), so the game stays challenging without erasing your progress
 - **Pathogen Splitting** — Destroyed pathogens split into two smaller ones (like Asteroids) until they're too small
 - **Resistance System** — Fungi take half damage; parasites resist fast antibodies (IgG/IgA) but not slow ones (IgM/IgE)
 - **Variant System** — Some pathogens spawn with special traits: armored, swift, or stalker

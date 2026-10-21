@@ -30,3 +30,5 @@ export * from './hazards';
 export * from './bosses';
 export * from './codex';
 export { codexArtUrl, cellArtUrl } from './art';
+export * from './difficulty';
+export * from './budget';

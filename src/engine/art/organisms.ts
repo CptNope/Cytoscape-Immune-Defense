@@ -22,7 +22,8 @@ export type ArtId =
   | 'virus' | 'phage' | 'bacterium' | 'bacterium_armored' | 'trypanosome' | 'giardia'
   | 'yeast' | 'prion' | 'cancer' | 'biofilm' | 'rbc' | 'rogue_t' | 'autoimmune_t' | 'vessel'
   | 'mimivirus' | 'hiv' | 'influenza' | 'tumor' | 'aspergillus' | 'schizont' | 'scolex' | 'proglottid'
-  | 'killer_t' | 'macrophage' | 'nk_cell' | 'plasma_b';
+  | 'killer_t' | 'macrophage' | 'nk_cell' | 'plasma_b'
+  | 'pu_rapid' | 'pu_shield' | 'pu_damage' | 'pu_purge';
 
 export interface ArtColors {
   /** Membrane / outline colour (the entity's palette colour). */
@@ -1147,11 +1148,107 @@ const plasmaB: Organism = {
   },
 };
 
+// ---------------------------------------------------------------------------
+// Power-ups: immune molecules the host releases
+// ---------------------------------------------------------------------------
+
+/** Rapid Fire — interleukin-2, the cytokine that drives T-cells to multiply: a four-helix bundle. */
+const puRapid: Organism = {
+  extent: 1.25,
+  glow: true,
+  body(c) {
+    const m = c.main, l = light(m, 0.45);
+    let s = circle(0, 0, 96, both(m, 0.1, m, 5));
+    for (let k = 0; k < 4; k++) {
+      const x0 = -45 + k * 30;
+      let d = '';
+      for (let i = 0; i <= 24; i++) {
+        const y = -62 + i * (124 / 24);
+        const x = x0 + 11 * Math.sin(i * 1.15 + k);
+        d += (i === 0 ? 'M' : 'L') + `${f(x)} ${f(y)}`;
+      }
+      s += path(d, stroke(k % 2 ? l : m, 7));
+    }
+    s += path('M-45 -64Q-30 -86 -15 -64M15 64Q30 86 45 64M-15 64Q0 80 15 64', stroke(l, 4, 0.8));
+    return s;
+  },
+  front(P, c, a) {
+    if (a.low) return;
+    // Signal ripples spreading out from the molecule
+    P.begin();
+    for (let k = 0; k < 2; k++) {
+      const u = (a.t * 0.9 + k * 0.5) % 1;
+      P.circle(0, 0, 100 + u * 30);
+    }
+    P.stroke(c.main, 3, 0.35);
+  },
+};
+
+/** Shield — a mucin / glycocalyx coat: a lattice of sugar rings. */
+const puShield: Organism = {
+  extent: 1.2,
+  glow: true,
+  body(c) {
+    const m = c.main, l = light(m, 0.45);
+    let s = circle(0, 0, 96, both(m, 0.14, m, 6));
+    for (const [x, y] of [[0, 0], [0, -46], [0, 46], [-40, -23], [40, -23], [-40, 23], [40, 23]]) {
+      s += path(poly(hexagon(19, x, y, 0)), both(l, 0.18, l, 3.5));
+    }
+    s += circle(0, 0, 82, `${stroke(m, 3, 0.55)} stroke-dasharray="4 8"`);
+    return s;
+  },
+};
+
+/** Damage Boost — a perforin pore: the ring killer cells punch through a target's membrane. */
+const puDamage: Organism = {
+  extent: 1.2,
+  glow: true,
+  body(c) {
+    const m = c.main, l = light(m, 0.4);
+    let s = circle(0, 0, 96, both(m, 0.1, m, 4, 0.7));
+    const n = 18;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2;
+      s += ellipse(Math.cos(a) * 62, Math.sin(a) * 62, 16, 8, both(i % 2 ? l : m, 0.5, m, 2.5), (a * 180) / Math.PI);
+    }
+    s += circle(0, 0, 40, fill('#0a0505', 0.85));
+    s += circle(0, 0, 40, stroke(l, 3, 0.8));
+    return s;
+  },
+  front(P, c, a) {
+    if (a.low) return;
+    P.begin();
+    P.circle(0, 0, 30 + 8 * Math.sin(a.t * 6));
+    P.fill(c.main, 0.35);
+  },
+};
+
+/** System Purge — a cytokine storm: an explosive burst of signalling molecules. */
+const puPurge: Organism = {
+  extent: 1.25,
+  glow: true,
+  body(c) {
+    const m = c.main, l = light(m, 0.45);
+    let s = circle(0, 0, 96, both(m, 0.12, m, 5));
+    let rays = '';
+    for (let i = 0; i < 16; i++) {
+      const a = (i / 16) * Math.PI * 2;
+      const r1 = i % 2 ? 30 : 22, r2 = i % 2 ? 70 : 84;
+      rays += `M${f(Math.cos(a) * r1)} ${f(Math.sin(a) * r1)}L${f(Math.cos(a) * r2)} ${f(Math.sin(a) * r2)}`;
+      s += circle(Math.cos(a) * (r2 + 6), Math.sin(a) * (r2 + 6), i % 2 ? 6 : 8, fill(i % 3 ? l : m, 0.9));
+    }
+    s += path(rays, stroke(m, 4, 0.8));
+    s += circle(0, 0, 18, fill(l, 0.9));
+    return s;
+  },
+};
+
 export const ORGANISMS: Record<ArtId, Organism> = {
   virus, phage, bacterium, bacterium_armored: bacteriumArmored, trypanosome, giardia, yeast, prion,
   cancer, biofilm, rbc, rogue_t: rogueT, autoimmune_t: autoimmuneT, vessel, mimivirus, hiv, influenza,
   tumor, aspergillus, schizont, scolex, proglottid,
   killer_t: killerT, macrophage, nk_cell: nkCell, plasma_b: plasmaB,
+  pu_rapid: puRapid, pu_shield: puShield, pu_damage: puDamage, pu_purge: puPurge,
 };
 
 /** Wraps art in a standalone SVG document, optionally with a baked soft glow. */
