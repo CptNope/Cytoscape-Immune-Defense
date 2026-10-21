@@ -6,7 +6,8 @@
 import { useState } from 'react';
 import { motion } from 'motion/react';
 import { ArrowLeft, Lock } from 'lucide-react';
-import { type PlayerProfile, CODEX, memoryProgress, MEMORY_BONUS_PER_LEVEL, MAX_MEMORY_LEVEL } from '../engine';
+import { type PlayerProfile, CODEX, memoryProgress, MEMORY_BONUS_PER_LEVEL, MAX_MEMORY_LEVEL, codexArtUrl } from '../engine';
+import OrganismArt from './OrganismArt';
 
 interface Props {
   profile: PlayerProfile;
@@ -60,7 +61,7 @@ export default function CodexPanel({ profile, onBack }: Props) {
         )}
 
         <div className="grid gap-2">
-          {entries.map(e => {
+          {entries.map((e, i) => {
             const count = e.kind === 'boss' ? bossKills[e.key] ?? 0 : kills[e.key] ?? 0;
             const unlocked = count > 0;
             const mem = e.kind === 'pathogen' ? memoryProgress(count) : null;
@@ -73,7 +74,7 @@ export default function CodexPanel({ profile, onBack }: Props) {
                 className={`text-left rounded-xl border p-3 transition-colors ${unlocked ? 'bg-white/5 border-white/10 hover:border-white/25' : 'bg-white/[0.02] border-white/5'}`}
               >
                 <div className="flex items-center gap-3">
-                  <span className="w-3 h-3 rounded-full shrink-0" style={{ background: unlocked ? e.color : '#333', boxShadow: unlocked ? `0 0 10px ${e.color}` : undefined }} />
+                  <OrganismArt src={codexArtUrl(e.key, e.color)} size={40} locked={!unlocked} delay={i * 0.04} />
                   <span className="flex-1 font-bold text-sm" style={{ color: unlocked ? e.color : '#555' }}>
                     {unlocked ? e.name : '???'}
                   </span>
@@ -96,6 +97,9 @@ export default function CodexPanel({ profile, onBack }: Props) {
                 )}
                 {expanded && (
                   <div className="mt-3 space-y-2 text-[12px] leading-relaxed">
+                    <div className="flex justify-center py-1">
+                      <OrganismArt src={codexArtUrl(e.key, e.color)} size={128} lively />
+                    </div>
                     <p className="text-white/80"><span className="text-white/40 uppercase text-[10px] tracking-wider block">Biology</span>{e.biology}</p>
                     <p className="text-white/70"><span className="text-white/40 uppercase text-[10px] tracking-wider block">In Cytoscape</span>{e.inGame}</p>
                     <p className="text-emerald-300/90"><span className="text-white/40 uppercase text-[10px] tracking-wider block">Tip</span>{e.tip}</p>

@@ -5,6 +5,45 @@ All notable changes to Cytoscape: Immune Defense will be documented in this file
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2026-10-21 — Under the Microscope
+
+### Changed
+- **Every cell and microbe redrawn from real biology**, as SVG artwork with animated parts:
+  - **Virus**: enveloped capsid with spike proteins that ripple around the envelope. **Swift** variant is now a bacteriophage that "walks" on its tail fibres
+  - **Bacteria**: rod-shaped cells with cell wall, chromosome, ribosomes and a plasmid, swimming tail-first on beating flagella (one, a tuft, or all over). **Armored** variant has a slimy polysaccharide capsule
+  - **Parasite**: *Trypanosoma* with its undulating membrane. **Stalker** variant is *Giardia*, with its two nuclei "eyes" and eight flagella
+  - **Fungus**: budding yeast cells sending out septate hyphae, with spores swelling at the tips
+  - **Prion**: a stacked β-sheet aggregate of misfolded protein
+  - **Cancer cell**: blebbing membrane, irregular nuclei and enlarged nucleoli
+  - **Biofilm**: bacteria embedded in a slime matrix that thins as its shield is worn down
+- **Bosses**:
+  - **Mega Virus** is Mimivirus, a real giant virus, with its hairy fibril coat and the star-shaped "stargate" that glows before it fires
+  - **Retrovirus** is HIV: gp120 knobs and a cone-shaped capsid holding two RNA strands
+  - **Influenza** has HA and NA spikes coloured by the antibody class it resists, and its 7+1 RNA segments
+  - **Fungal Bloom** is an *Aspergillus* spore head
+  - **Plasmodium** is a schizont: a rosette of merozoites around malaria pigment
+  - **Parasitic Worm** is a tapeworm: a hooked scolex followed by rippling proglottid segments
+  - **Metastatic Tumor**, **Autoimmune T-Cell**, the tumour's blood vessels and the host red blood cells are redrawn too
+- **Player cells**:
+  - Each is a crawling immune cell with a ruffled leading edge at the front and a uropod tail
+  - **Killer T-Cell**: lytic granules at the front
+  - **Macrophage**: pseudopods, and phagosomes full of digested microbes
+  - **NK Cell**: dense cytotoxic granules
+  - **Plasma B-Cell**: clock-face nucleus and stacked rough ER, with antibodies drifting out
+- **Antibodies have their real shapes**: IgG and IgE are Ys, IgA a two-Y dimer, IgM a five-armed pentamer
+- **Motion**:
+  - Pathogens spring in when they appear, turn smoothly toward where they're swimming, stretch with speed, and squash and flash when hit
+  - The player cell stretches as it moves, and membrane ripples trail behind it while thrusting
+- **Codex and cell picker show the artwork**, animated with Motion; it stays still when the system's reduce-motion setting is on, and undiscovered codex entries show as silhouettes
+
+### Performance
+- Artwork is rasterised once into cached bitmaps, and its glow is baked in instead of using live canvas `shadowBlur`. Benchmarked with 60 pathogens, a frame is about **2× faster on high quality and 30% faster on low**
+- On low quality the animated parts are frozen into the bitmap, so each organism is a single image draw. Parts that show game state (biofilm shield, Mega Virus charge) stay live
+
+### Added
+- `.claude/skills/motion-dev-animations`: Motion.dev skill for Claude Code (from #4)
+- Unit tests for the artwork, the entity-to-art mapping and the motion springs
+
 ## [2.0.0] - 2026-10-20 — Immune Response
 
 ### Fixed
