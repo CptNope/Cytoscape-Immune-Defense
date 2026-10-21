@@ -253,11 +253,11 @@ export default function Game() {
     const prev = threatRef.current;
     const mods = modifiersRef.current;
     const fx = mutFxRef.current;
-    const mem = Object.values(memoryRef.current);
+    const mem = Object.values(memoryRef.current) as number[];
     const power = playerPower({
       bulletDamage: mods.bulletDamage,
       shotDelay: mods.shotDelay,
-      memoryAvg: mem.length ? mem.reduce((a, b) => a + b, 0) / mem.length : 1,
+      memoryAvg: mem.length ? mem.reduce((sum: number, m: number) => sum + m, 0) / mem.length : 1,
       damageMult: fx.damageMult,
       fireDelayMult: fx.fireDelayMult,
       sideShotStacks: fx.sideShotStacks,
