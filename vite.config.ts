@@ -28,7 +28,8 @@ export default defineConfig(({mode}) => {
           display: 'standalone',
           orientation: 'any',
           scope: '/Cytoscape-Immune-Defense/',
-          start_url: '/Cytoscape-Immune-Defense/',
+          // The installed app goes straight to the game; the website opens to the intro page
+          start_url: '/Cytoscape-Immune-Defense/#play',
           categories: ['games', 'entertainment'],
           icons: [
             { src: 'icons/icon-48x48.png', sizes: '48x48', type: 'image/png' },

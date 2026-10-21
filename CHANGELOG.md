@@ -5,6 +5,26 @@ All notable changes to Cytoscape: Immune Defense will be documented in this file
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.0] - 2026-10-21 — First Contact
+
+### Added
+- **The game now opens to an animated landing page**, with the game playing itself in the background:
+  - A Killer T-cell hunts drifting pathogens with every antibody class, drawn by the real game renderer
+  - It drifts and dims as you scroll, and pauses when the tab is hidden
+- **The page explains the whole game**:
+  - How to play
+  - All seven pathogens with their art, behaviour and counters
+  - The four antibody classes and four playable cells
+  - The nine bosses
+  - Progression (clonal selection, immune memory, upgrades, adaptive resistance)
+  - Controls for keyboard and touch
+- **Animated with Motion**:
+  - The title springs in letter by letter
+  - Sections rise in as they scroll into view, with staggered cards and springy hover and tap feedback
+  - Everything stays still when the system's reduce-motion setting is on
+- **Play** goes straight to the game menu (the URL becomes `#play`, so back and forward work and `#play` links skip the intro). The menu has an **About the game** link back
+- **CI preview builds**: every pull request uploads its built site as an artifact and publishes it to a hidden `refs/previews/<branch>` git ref for checking
+
 ## [2.2.0] - 2026-10-21 — Selection Pressure
 
 ### Added

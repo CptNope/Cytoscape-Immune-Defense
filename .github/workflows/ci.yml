@@ -5,6 +5,9 @@ on:
   push:
     branches-ignore: ['main']
 
+permissions:
+  contents: read
+
 jobs:
   check:
     runs-on: ubuntu-latest
@@ -29,3 +32,46 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Upload preview build
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: preview-build
+          path: dist
+          retention-days: 7
+
+  # Publishes the built site as a hidden git ref (not a branch), so a PR can
+  # be checked with plain git: git fetch origin refs/previews/<branch>
+  # Runs separately so only this small job ever holds a write token, and
+  # never for forks or Dependabot (their tokens are read-only).
+  preview-ref:
+    needs: check
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    continue-on-error: true
+    steps:
+      - name: Download preview build
+        uses: actions/download-artifact@v4
+        with:
+          name: preview-build
+          path: dist
+
+      - name: Push preview ref
+        working-directory: dist
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          REPO: ${{ github.repository }}
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git check-ref-format "refs/previews/${HEAD_REF}"
+          git init -q
+          git add -A
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -qm "Preview build of ${HEAD_SHA}"
+          git push -qf "https://x-access-token:${TOKEN}@github.com/${REPO}.git" "HEAD:refs/previews/${HEAD_REF}"
