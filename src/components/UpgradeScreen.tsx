@@ -31,11 +31,13 @@ interface UpgradeScreenProps {
   colorblind: boolean;
   onColorblindChange: (on: boolean) => void;
   onReplayTutorial: () => void;
+  /** Back to the landing page that explains the game. */
+  onShowAbout?: () => void;
 }
 
 export default function UpgradeScreen({
   profile, onProfileChange, onPlay, onShowStats, onShowLoadout, onShowCodex,
-  colorblind, onColorblindChange, onReplayTutorial,
+  colorblind, onColorblindChange, onReplayTutorial, onShowAbout,
 }: UpgradeScreenProps) {
   const spent = UPGRADE_DEFS.reduce((sum, d) => sum + upgradeSpent(profile, d.id), 0);
   const cell = getCellType(profile.cellType);
@@ -223,6 +225,11 @@ export default function UpgradeScreen({
           <button onClick={onReplayTutorial} className="underline underline-offset-2 hover:text-white">
             Replay tutorial next run
           </button>
+          {onShowAbout && (
+            <button onClick={onShowAbout} className="underline underline-offset-2 hover:text-white">
+              About the game
+            </button>
+          )}
         </div>
       </div>
     </motion.div>

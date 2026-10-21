@@ -32,3 +32,4 @@ export * from './codex';
 export { codexArtUrl, cellArtUrl } from './art';
 export * from './difficulty';
 export * from './budget';
+export * from './attract';

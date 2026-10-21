@@ -29,3 +29,11 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Upload preview build
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: preview-build
+          path: dist
+          retention-days: 7

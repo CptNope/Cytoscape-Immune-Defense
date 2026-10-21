@@ -109,7 +109,7 @@ interface Banner {
   color: string;
 }
 
-export default function Game() {
+export default function Game({ onHome }: { onHome?: () => void } = {}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [gameState, setGameState] = useState<'menu' | 'playing' | 'gameover'>('menu');
   const [score, setScore] = useState(0);
@@ -2153,6 +2153,7 @@ export default function Game() {
             colorblind={colorblind}
             onColorblindChange={setColorblind}
             onReplayTutorial={() => writeFlag(TUTORIAL_KEY, false)}
+            onShowAbout={onHome}
           />
         )}
 
