@@ -358,13 +358,13 @@ function drawAntibodies(ctx: CanvasRenderingContext2D, antibodies: Antibody[]): 
         }
       } else if (cls.id === 'IgA') {
         // Two Ys joined at the stem (secretory dimer)
-        for (const d of [1, -1]) {
+        for (let d = 1; d >= -1; d -= 2) {
           const fx = x + c * 2 * d, fy = y + s * 2 * d;
           ctx.moveTo(x, y);
           ctx.lineTo(fx, fy);
-          ctx.lineTo(fx + (c * 4 - s * 3.5 * d) * d, fy + (s * 4 + c * 3.5 * d) * d);
+          ctx.lineTo(fx + c * 4 * d - s * 3.5, fy + s * 4 * d + c * 3.5);
           ctx.moveTo(fx, fy);
-          ctx.lineTo(fx + (c * 4 + s * 3.5 * d) * d, fy + (s * 4 - c * 3.5 * d) * d);
+          ctx.lineTo(fx + c * 4 * d + s * 3.5, fy + s * 4 * d - c * 3.5);
         }
       } else {
         const stem = cls.id === 'IgE' ? 7 : 5;
@@ -461,12 +461,27 @@ function drawPathogens(ctx: CanvasRenderingContext2D, pathogens: Pathogen[]): vo
     if (!drawArt(ctx, art, p.id, artColors, p.radius, pxScale, { flash })) {
       drawPlaceholder(ctx, p.radius, color);
     }
-    ctx.restore();
-
     if (p.type === 'host_rbc') {
+      // Ring-stage tell and cracks follow the cell's pop-in and squash
       drawHostCellOverlay(ctx, p, pathogens);
       ctx.restore();
+      ctx.restore();
       return;
+    }
+    ctx.restore();
+
+    // Biofilm: glowing slime shield until it's broken, then the bacteria are exposed
+    if (p.type === 'biofilm' && (p.shieldHealth ?? 0) > 0) {
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 3;
+      ctx.shadowColor = color;
+      ctx.shadowBlur = glow(20);
+      ctx.globalAlpha *= 0.4 + ((p.shieldHealth ?? 0) / (p.maxShieldHealth ?? 1)) * 0.4;
+      ctx.beginPath();
+      ctx.arc(0, 0, p.radius + 5, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
     }
 
     ctx.strokeStyle = color;
@@ -493,7 +508,7 @@ function drawPathogens(ctx: CanvasRenderingContext2D, pathogens: Pathogen[]): vo
 
     // Mega Virus charging its virion ring
     if (p.isBoss && p.boss?.data.charging) {
-      ctx.globalAlpha = 0.15 + 0.15 * Math.sin(Date.now() * 0.03);
+      ctx.globalAlpha = 0.25 + 0.25 * Math.sin(Date.now() * 0.03);
       ctx.fillStyle = '#fbbf24';
       ctx.beginPath();
       ctx.arc(0, 0, p.radius * 0.8, 0, Math.PI * 2);
@@ -606,14 +621,21 @@ const WARM_ART: [ArtId, keyof typeof PALETTE_DEFAULT, number][] = [
 ];
 
 /** Rasterise the common sprites while menus are up, so the first wave doesn't pop in as circles. */
+let warmedFor = '';
 function warmSprites(state: RenderState): void {
+  const sig = `${palette === PALETTE_COLORBLIND}|${lowDetail}|${pxScale}|${state.cellType}|${state.membraneColor}`;
+  if (sig === warmedFor) return;
+  warmedFor = sig;
   for (const [id, key, r] of WARM_ART) {
     artColors.main = palette[key];
     artColors.alt = id === 'biofilm' ? palette.bacteria : palette[key];
     for (let v = 0; v < 3; v++) preloadArt(id, artColors, r, pxScale, v, lowDetail);
   }
   const cell = state.cellType ?? 'killer_t';
-  preloadArt(CELL_ART[cell], { main: state.membraneColor ?? '#ffffff', alt: '#4ade80' }, 18, pxScale, 0, lowDetail);
+  // The player's cell, plus its red low-health and critical colours
+  for (const main of [state.membraneColor ?? '#ffffff', '#fca5a5', '#ef4444']) {
+    preloadArt(CELL_ART[cell], { main, alt: '#4ade80' }, 18, pxScale, 0, lowDetail);
+  }
 }
 
 function drawWormSegments(ctx: CanvasRenderingContext2D, p: Pathogen): void {
@@ -747,7 +769,8 @@ function drawShip(
     ctx.rotate(va);
     ctx.scale(1 + stretch, 1 - stretch * 0.6);
     ctx.rotate(-va);
-    shipColors.main = membrane;
+    // The membrane turns red at low health, as before the artwork
+    shipColors.main = isLow ? (isCritical ? '#ef4444' : '#fca5a5') : membrane;
     anim.seed = 0;
     anim.speed = sp;
     anim.level = 0;

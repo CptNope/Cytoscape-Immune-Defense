@@ -36,16 +36,16 @@ export default function OrganismArt({ src, size, locked = false, delay = 0, live
       width={size}
       height={size}
       className="shrink-0 select-none pointer-events-none"
-      style={locked ? { filter: 'brightness(0) invert(0.18)', opacity: 0.7 } : undefined}
+      style={locked ? { filter: 'brightness(0) invert(0.18)' } : undefined}
       initial={reduce ? false : { opacity: 0, scale: 0.6 }}
       animate={idle
         ? { opacity: 1, scale: 1, y: [0, -drift, 0, drift * 0.6, 0], rotate: [0, turn, 0, -turn, 0] }
-        : { opacity: 1, scale: 1 }}
+        : { opacity: locked ? 0.7 : 1, scale: 1, y: 0, rotate: 0 }}
       transition={{
         opacity: { duration: 0.25, delay },
         scale: { type: 'spring', stiffness: 300, damping: 20, delay },
-        y: { duration: 6 + (delay * 7) % 2, repeat: Infinity, ease: 'easeInOut', delay },
-        rotate: { duration: 9 + (delay * 11) % 3, repeat: Infinity, ease: 'easeInOut', delay },
+        y: idle ? { duration: 6 + (delay * 7) % 2, repeat: Infinity, ease: 'easeInOut', delay } : { duration: 0.3 },
+        rotate: idle ? { duration: 9 + (delay * 11) % 3, repeat: Infinity, ease: 'easeInOut', delay } : { duration: 0.3 },
       }}
     />
   );

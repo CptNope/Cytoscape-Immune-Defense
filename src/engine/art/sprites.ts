@@ -19,6 +19,10 @@ import { CanvasPainter, SvgPainter } from './painter';
 /** A rasterised sprite and the half-size of its art box, in art units. */
 interface Sprite { cv: HTMLCanvasElement; e: number; full: boolean }
 const ready = new Map<string, Sprite>();
+/** Last ready sprite per art + variant (any colour): stand-in while a recoloured one loads. */
+const anyColour = new Map<string, Sprite>();
+/** Bumped by clearArtCache so loads started before a clear are ignored. */
+let generation = 0;
 const pending = new Set<string>();
 const failed = new Set<string>();
 
@@ -62,29 +66,35 @@ function artMarkup(id: ArtId, c: ArtColors, v: number, full: boolean, t = 0.35):
 function load(key: string, id: ArtId, v: number, c: ArtColors, size: number, full: boolean): void {
   if (pending.has(key) || failed.has(key) || !canRasterise()) return;
   pending.add(key);
+  const gen = generation;
   const org = ORGANISMS[id];
   const box = boxOf(id, full);
   const svg = svgDocument(artMarkup(id, c, v, full), size, box, !!org.glow);
   const img = new Image();
   img.onload = () => {
+    if (gen !== generation) return;
     pending.delete(key);
     const cv = document.createElement('canvas');
     cv.width = cv.height = size;
     const g = cv.getContext('2d');
     if (!g) { failed.add(key); return; }
     g.drawImage(img, 0, 0, size, size);
-    ready.set(key, { cv, e: Math.round(100 * box), full });
+    const sprite = { cv, e: Math.round(100 * box), full };
+    ready.set(key, sprite);
+    anyColour.set(`${id}|${v}`, sprite);
   };
-  img.onerror = () => { pending.delete(key); failed.add(key); };
+  img.onerror = () => { if (gen === generation) { pending.delete(key); failed.add(key); } };
   img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
 }
 
 /** Starts rasterising a sprite ahead of time (e.g. while the menu is up). */
 export function preloadArt(id: ArtId, c: ArtColors, radius: number, pixelScale: number, v = 0, low = false): void {
+  const org = ORGANISMS[id];
+  const variant = org.variants ? v % org.variants : 0;
   const full = freezes(id, low);
   const size = bucketFor(2 * boxOf(id, full) * radius * pixelScale);
-  const key = spriteKey(id, v, c, size, full);
-  if (!ready.has(key)) load(key, id, v, c, size, full);
+  const key = spriteKey(id, variant, c, size, full);
+  if (!ready.has(key)) load(key, id, variant, c, size, full);
 }
 
 const painter = new CanvasPainter();
@@ -120,6 +130,8 @@ export function drawArt(
       const alt = ready.get(spriteKey(id, variant, c, b, full)) ?? ready.get(spriteKey(id, variant, c, b, !full));
       if (alt) { sprite = alt; break; }
     }
+    // Recoloured (colourblind mode, cosmetics, influenza strain shift): keep showing the old colours
+    sprite ??= anyColour.get(`${id}|${variant}`);
     if (!sprite) return false;
   }
   // A stand-in may be the other kind: only add live parts to a static body
@@ -171,6 +183,8 @@ export function artDataUrl(id: ArtId, c: ArtColors, v = 0, size = 128, t = 0.35)
 /** For tests: forget every cached sprite. */
 export function clearArtCache(): void {
   ready.clear();
+  anyColour.clear();
   pending.clear();
   failed.clear();
+  generation++;
 }

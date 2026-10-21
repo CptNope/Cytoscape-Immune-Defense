@@ -671,6 +671,7 @@ const biofilm: Organism = {
   },
   back(P, c, a) {
     const shield = a.level;
+    if (shield <= 0) return; // matrix stripped away: the bacteria are exposed
     const n = a.low ? 18 : 28;
     let fx = 0, fy = 0, px = 0, py = 0;
     P.begin();
