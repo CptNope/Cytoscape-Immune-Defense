@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { playerPower, threatFor, threatLabel, HEALTH_POWER_EXPONENT, type PowerInputs } from '../difficulty';
+import { playerPower, threatFor, threatLabel, bossThreatScale, HEALTH_POWER_EXPONENT, type PowerInputs } from '../difficulty';
 import { entityCaps, LoadGovernor, roomUnder, HIGH_CAPS, LOW_CAPS } from '../budget';
 import { computeModifiers } from '../progression';
 import { mutationEffects } from '../mutations';
@@ -94,6 +94,14 @@ describe('threat', () => {
     expect(threatFor(1, 1, 'endless', 80).damage).toBe(1);
   });
 
+  it('scales bosses on the same curve as regular pathogens', () => {
+    expect(bossThreatScale(0, 1)).toBe(1);
+    expect(bossThreatScale(0, 75)).toBeCloseTo(threatFor(75, 1, 'endless', 100).health, 5);
+    expect(bossThreatScale(2, 1)).toBeCloseTo(2.2, 5);
+    // A very strong build still beats a boss faster than a fresh one does
+    expect(75 / bossThreatScale(0, 75)).toBeGreaterThan(3);
+  });
+
   it('formats a short label', () => {
     expect(threatLabel(threatFor(4, 1, 'endless', 100))).toMatch(/^×\d+\.\d$/);
     expect(threatLabel({ power: 1, health: 31.4, speed: 1, damage: 1 })).toBe('×31');
@@ -143,6 +151,18 @@ describe('load governor', () => {
     const g = new LoadGovernor();
     for (let i = 0; i < 500; i++) g.sample(16.7);
     expect(g.scale).toBe(1);
+  });
+
+  it('does not punish a device locked to 30fps that keeps up', () => {
+    const g = new LoadGovernor(24, 18, 10);
+    for (let i = 0; i < 200; i++) g.sample(33.3, 6);
+    expect(g.scale).toBe(1);
+  });
+
+  it('still tightens on a 30fps device that is actually busy', () => {
+    const g = new LoadGovernor(24, 18, 10);
+    for (let i = 0; i < 60; i++) g.sample(40, 32);
+    expect(g.scale).toBeLessThan(1);
   });
 
   it('resets', () => {

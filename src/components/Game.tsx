@@ -33,12 +33,12 @@ import {
   loadProfile, awardXp, recordRunStats, computeModifiers,
   CAMPAIGN_LEVELS, TIME_ATTACK_INITIAL_SECONDS, TIME_ATTACK_KILL_BONUS_SECONDS, TIME_ATTACK_BOSS_BONUS_SECONDS,
   campaignStars, loadCampaignStars, saveCampaignStars,
-  BOSS_DEFS, spawnBoss, updateBoss, updateMinion, endlessBossFor, bossHealthScale,
+  BOSS_DEFS, spawnBoss, updateBoss, updateMinion, endlessBossFor,
   computeHit, bombDamage,
   updateProjectiles, updateHazards, updateLysis,
   getCellType, getAntibodyClass, unlockedAntibodyClasses, nextAntibodyClass, buildVolley,
   memoryTable, rollDraft, applyMutation, mutationEffects, getMutation,
-  entityCaps, LoadGovernor, roomUnder, playerPower, threatFor, threatLabel, NO_THREAT,
+  entityCaps, LoadGovernor, roomUnder, playerPower, threatFor, threatLabel, bossThreatScale, NO_THREAT,
   type EntityCaps, type Threat,
 } from '../engine';
 import AudioControls from './AudioControls';
@@ -293,11 +293,19 @@ export default function Game() {
     p.maxHealth *= h;
     p.hpScale = h;
     if (p.shieldHealth !== undefined) {
+      const maxShield = p.maxShieldHealth ?? p.shieldHealth;
       p.shieldHealth *= h;
-      p.maxShieldHealth = (p.maxShieldHealth ?? p.shieldHealth) * h;
+      p.maxShieldHealth = maxShield * h;
     }
     p.vel.x *= t.speed;
     p.vel.y *= t.speed;
+  };
+
+  /** Adds a pathogen, adapted to the current threat right away (so it's never hit at base health). */
+  const pushPathogen = (p: Pathogen): Pathogen => {
+    pathogensRef.current.push(p);
+    if (!p.adapted) adaptPathogen(p);
+    return p;
   };
 
   /** Pathogens a reinforcement adds to the screen. */
@@ -492,7 +500,7 @@ export default function Game() {
     const lvl = levelRef.current;
     const hp = (radius / 10) * (type === 'fungus' ? 2 : 1) * (variant === 'armored' ? 2.5 : variant === 'swift' ? 0.6 : 1);
     const velMult = (1 + lvl * 0.1) * (type === 'parasite' ? 1.5 : 1) * (variant === 'swift' ? 1.8 : variant === 'armored' ? 0.6 : 1);
-    pathogensRef.current.push({
+    pushPathogen({
       id: nextIdRef.current++,
       pos,
       vel: { x: randomRange(-2, 2) * velMult, y: randomRange(-2, 2) * velMult },
@@ -516,7 +524,7 @@ export default function Game() {
     for (let i = 0; i < PRION_SWARM_SIZE; i++) {
       const angle = (Math.PI * 2 * i) / PRION_SWARM_SIZE + randomRange(-0.3, 0.3);
       const dist = randomRange(20, 50);
-      pathogensRef.current.push({
+      pushPathogen({
         id: nextIdRef.current++,
         pos: { x: centerX + Math.cos(angle) * dist, y: centerY + Math.sin(angle) * dist },
         vel: { x: randomRange(-PRION_SPEED, PRION_SPEED), y: randomRange(-PRION_SPEED, PRION_SPEED) },
@@ -535,7 +543,7 @@ export default function Game() {
 
   const spawnCancerCell = () => {
     const hp = CANCER_INITIAL_RADIUS * CANCER_HEALTH_PER_RADIUS;
-    pathogensRef.current.push({
+    pushPathogen({
       id: nextIdRef.current++,
       pos: randomSafePos(200),
       vel: { x: 0, y: 0 },
@@ -553,7 +561,7 @@ export default function Game() {
   };
 
   const spawnBiofilm = () => {
-    pathogensRef.current.push({
+    pushPathogen({
       id: nextIdRef.current++,
       pos: randomSafePos(250),
       vel: { x: randomRange(-0.5, 0.5), y: randomRange(-0.5, 0.5) },
@@ -584,7 +592,7 @@ export default function Game() {
     const hp = (radius / 10) * (type === 'fungus' ? 2 : 1) * (variant === 'armored' ? 2.5 : variant === 'swift' ? 0.6 : 1);
     const velMult = (type === 'parasite' ? 1.5 : 1) * (variant === 'swift' ? 1.8 : variant === 'armored' ? 0.6 : 1);
 
-    pathogensRef.current.push({
+    pushPathogen({
       id: nextIdRef.current++,
       pos: randomSafePos(200),
       vel: { x: randomRange(-2, 2) * velMult, y: randomRange(-2, 2) * velMult },
@@ -676,7 +684,7 @@ export default function Game() {
     get pathogens() { return pathogensRef.current; },
     get unlockedClasses() { return unlockedClassesRef.current; },
     nextId: () => nextIdRef.current++,
-    addPathogen: (p) => { pathogensRef.current.push(p); return p; },
+    addPathogen: (p) => pushPathogen(p),
     fire: (p) => {
       // At the limit new shots are dropped; the screen is already full of them
       if (projectilesRef.current.length >= capsRef.current.projectiles) return;
@@ -707,7 +715,7 @@ export default function Game() {
     const cy = worldRef.current.h / 2;
     const a = Math.atan2(cy - ship.pos.y, cx - ship.pos.x);
     const pos = { x: cx + Math.cos(a) * 150, y: cy + Math.sin(a) * 150 };
-    const scale = bossHealthScale(cycle, threatRef.current.power);
+    const scale = bossThreatScale(cycle, threatRef.current.power);
     const boss = spawnBoss(gameCtx, type, pos, scale);
     const def = BOSS_DEFS[type];
     setBossUi({
@@ -1253,8 +1261,9 @@ export default function Game() {
           p.vel.x *= 0.97; p.vel.y *= 0.97;
           if (p.growthRate && p.radius < CANCER_MAX_RADIUS) {
             p.radius += p.growthRate;
-            p.health = Math.max(p.health, p.radius * CANCER_HEALTH_PER_RADIUS * (p.health / Math.max(0.01, p.maxHealth)));
-            p.maxHealth = p.radius * CANCER_HEALTH_PER_RADIUS * (p.hpScale ?? 1);
+            const scaledMax = p.radius * CANCER_HEALTH_PER_RADIUS * (p.hpScale ?? 1);
+            p.health = Math.max(p.health, scaledMax * (p.health / Math.max(0.01, p.maxHealth)));
+            p.maxHealth = scaledMax;
           }
           if (p.spawnTimer !== undefined && --p.spawnTimer <= 0) {
             p.spawnTimer = CANCER_SPAWN_INTERVAL;
@@ -1263,7 +1272,7 @@ export default function Game() {
               const a = Math.random() * Math.PI * 2;
               const d = p.radius + 20;
               const hp = CANCER_INITIAL_RADIUS * CANCER_HEALTH_PER_RADIUS * 0.5;
-              pathogens.push({
+              pushPathogen({
                 id: nextIdRef.current++,
                 pos: { x: p.pos.x + Math.cos(a) * d, y: p.pos.y + Math.sin(a) * d },
                 vel: { x: 0, y: 0 }, radius: CANCER_INITIAL_RADIUS * 0.6,
@@ -1358,6 +1367,7 @@ export default function Game() {
     const autoTarget = mods.hasAutoTarget;
 
     compactInPlace<Antibody>(antibodiesRef.current, a => {
+      if (a.life <= 0) return false; // fizzled out at the on-screen limit
       // Homing: Plasma B-cell antibodies and the Auto-Targeting cytokine
       const strength = Math.max(a.homing ?? 0, autoTarget ? AUTO_TARGET_STRENGTH : 0);
       if (strength > 0) {
@@ -1747,6 +1757,7 @@ export default function Game() {
         // Boss-kill slow motion
         const ts = timeScaleRef.current;
         acc += now < ts.until ? dt * ts.scale : dt;
+        const workStart = performance.now();
         let steps = 0;
         while (acc >= STEP_MS && steps < MAX_STEPS_PER_FRAME) {
           frameFnsRef.current.update();
@@ -1758,7 +1769,7 @@ export default function Game() {
         alphaRef.current = acc / STEP_MS;
         if (steps > 0 || qualityRef.current === 'high') frameFnsRef.current.draw();
         monitorPerformance(dt);
-        if (governorRef.current.sample(dt)) refreshCaps();
+        if (governorRef.current.sample(dt, performance.now() - workStart)) refreshCaps();
       } else {
         acc = 0;
         if (now - lastIdleDraw > 33) {

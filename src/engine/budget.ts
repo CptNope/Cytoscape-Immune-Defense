@@ -41,26 +41,49 @@ export function entityCaps(quality: RenderQuality, load = 1): EntityCaps {
 }
 
 /**
- * Watches frame times (simulation plus drawing) and tightens the caps when
- * the device can't hold a smooth frame rate, then slowly relaxes them again
- * when it can. Over ~24ms a frame (under ~42fps) counts as struggling.
+ * Watches frame times and tightens the caps when the device can't hold a
+ * smooth frame rate, then slowly relaxes them again when it can. Over ~24ms a
+ * frame (under ~42fps) counts as struggling.
+ *
+ * A device locked to 30fps (low-power mode, 30Hz screens) has ~33ms frames
+ * even when idle. When no frame in a window was faster than that, the
+ * governor judges by the time the game itself spent working instead.
  */
 export class LoadGovernor {
   /** Multiplier for the caps, 0.5..1. */
   scale = 1;
   private ema = 0;
+  private workEma = 0;
+  private minFrame = Infinity;
   private samples = 0;
 
-  constructor(private readonly slowMs = 24, private readonly fastMs = 18, private readonly window = 45) {}
+  constructor(
+    private readonly slowMs = 24,
+    private readonly fastMs = 18,
+    private readonly window = 45,
+    /** Work per frame that counts as struggling on a 30fps-locked device. */
+    private readonly slowWorkMs = 20,
+    private readonly fastWorkMs = 12,
+  ) {}
 
-  /** Record one frame's duration (ms). Returns true when the scale changed. */
-  sample(frameMs: number): boolean {
-    this.ema = this.samples === 0 && this.ema === 0 ? frameMs : this.ema * 0.95 + frameMs * 0.05;
+  /**
+   * Record one frame: its duration and the time spent simulating and drawing
+   * it (ms; defaults to the frame time). Returns true when the scale changed.
+   */
+  sample(frameMs: number, workMs = frameMs): boolean {
+    const first = this.samples === 0 && this.ema === 0;
+    this.ema = first ? frameMs : this.ema * 0.95 + frameMs * 0.05;
+    this.workEma = first ? workMs : this.workEma * 0.95 + workMs * 0.05;
+    this.minFrame = Math.min(this.minFrame, frameMs);
     if (++this.samples < this.window) return false;
+    const locked = this.minFrame > 28;
     this.samples = 0;
+    this.minFrame = Infinity;
+    const slow = locked ? this.workEma > this.slowWorkMs : this.ema > this.slowMs;
+    const fast = locked ? this.workEma < this.fastWorkMs : this.ema < this.fastMs;
     const before = this.scale;
-    if (this.ema > this.slowMs) this.scale = Math.max(0.5, this.scale * 0.85);
-    else if (this.ema < this.fastMs) this.scale = Math.min(1, this.scale + 0.05);
+    if (slow) this.scale = Math.max(0.5, this.scale * 0.85);
+    else if (fast) this.scale = Math.min(1, this.scale + 0.05);
     return this.scale !== before;
   }
 
@@ -70,6 +93,8 @@ export class LoadGovernor {
   reset(): void {
     this.scale = 1;
     this.ema = 0;
+    this.workEma = 0;
+    this.minFrame = Infinity;
     this.samples = 0;
   }
 }

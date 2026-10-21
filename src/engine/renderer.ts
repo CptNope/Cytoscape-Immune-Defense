@@ -302,6 +302,7 @@ function drawPowerUps(ctx: CanvasRenderingContext2D, powerUps: PowerUp[]): void 
     artColors.main = def.color;
     artColors.alt = def.color;
     anim.seed = p.id;
+    anim.speed = 0;
     anim.level = 0;
     if (!drawArt(ctx, def.art, 0, artColors, 13, pxScale)) drawPlaceholder(ctx, 10, def.color);
     ctx.restore();

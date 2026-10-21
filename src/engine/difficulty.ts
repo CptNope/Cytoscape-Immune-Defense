@@ -97,6 +97,14 @@ export function threatFor(power: number, level: number, mode: GameMode, maxHealt
   };
 }
 
+/**
+ * Boss health multiplier: the same power curve as regular pathogens, times
+ * the endless-mode cycle (each lap of the boss rotation is tougher).
+ */
+export function bossThreatScale(cycle: number, power: number): number {
+  return (1 + 0.6 * cycle) * Math.pow(Math.max(1, power), HEALTH_POWER_EXPONENT);
+}
+
 /** Rounded label for the HUD ("×2.3"). */
 export function threatLabel(t: Threat): string {
   return `×${t.health < 10 ? t.health.toFixed(1) : Math.round(t.health)}`;
