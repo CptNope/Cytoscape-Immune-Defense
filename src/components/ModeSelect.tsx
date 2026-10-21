@@ -12,6 +12,7 @@ interface ModeSelectProps {
   onSelect: (mode: GameMode) => void;
   onBack: () => void;
   campaignProgress: number; // highest campaign level completed (0 = none)
+  campaignTotal: number;
 }
 
 const MODES: { id: GameMode; name: string; icon: ReactNode; desc: string; color: string }[] = [
@@ -19,14 +20,14 @@ const MODES: { id: GameMode; name: string; icon: ReactNode; desc: string; color:
     id: 'endless',
     name: 'Endless Mode',
     icon: <Infinity size={28} />,
-    desc: 'Classic survival. Waves get harder forever. How far can you go?',
+    desc: 'Survival. A boss every 5 waves, mutations between waves. How far can you go?',
     color: '#4ade80',
   },
   {
     id: 'campaign',
     name: 'Campaign',
     icon: <BookOpen size={28} />,
-    desc: '20 story-driven levels. Follow the immune response from infection to recovery.',
+    desc: 'Two acts, 30 story missions and 9 bosses. Follow the immune response from infection to relapse.',
     color: '#60a5fa',
   },
   {
@@ -45,7 +46,7 @@ const MODES: { id: GameMode; name: string; icon: ReactNode; desc: string; color:
   },
 ];
 
-export default function ModeSelect({ onSelect, onBack, campaignProgress }: ModeSelectProps) {
+export default function ModeSelect({ onSelect, onBack, campaignProgress, campaignTotal }: ModeSelectProps) {
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -122,7 +123,7 @@ export default function ModeSelect({ onSelect, onBack, campaignProgress }: ModeS
             <span style={{ fontSize: '11px', color: '#a3a3a3', lineHeight: '1.4' }}>{mode.desc}</span>
             {mode.id === 'campaign' && campaignProgress > 0 && (
               <span style={{ fontSize: '10px', color: '#737373', marginTop: '2px' }}>
-                Progress: {campaignProgress}/20
+                Progress: {Math.min(campaignProgress, campaignTotal)}/{campaignTotal}
               </span>
             )}
           </motion.button>

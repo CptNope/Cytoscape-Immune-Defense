@@ -4,15 +4,29 @@
  */
 
 import { motion } from 'motion/react';
-import { Play } from 'lucide-react';
-import type { CampaignLevel } from '../engine';
+import { Play, ArrowLeft, Lock } from 'lucide-react';
+import { type CampaignLevel, BOSS_DEFS, parTime } from '../engine';
 
 interface CampaignBriefingProps {
   level: CampaignLevel;
+  levels: CampaignLevel[];
+  selectedIdx: number;
+  /** Highest level index the player may start from. */
+  unlockedIdx: number;
+  /** Best stars per level number. */
+  stars: Record<number, number>;
+  onSelect: (idx: number) => void;
   onStart: () => void;
+  onBack: () => void;
 }
 
-export default function CampaignBriefing({ level, onStart }: CampaignBriefingProps) {
+export default function CampaignBriefing({ level, levels, selectedIdx, unlockedIdx, stars, onSelect, onStart, onBack }: CampaignBriefingProps) {
+  const totalStars = Object.values<number>(stars).reduce((a, b) => a + b, 0);
+  // Act headings live on the first level of each act
+  const actFor = (idx: number) => {
+    for (let i = idx; i >= 0; i--) if (levels[i].act) return levels[i].act;
+    return '';
+  };
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -35,14 +49,67 @@ export default function CampaignBriefing({ level, onStart }: CampaignBriefingPro
         WebkitOverflowScrolling: 'touch',
       }}
     >
-      <div style={{ flex: '0 0 auto', minHeight: 'clamp(10px, 3vh, 40px)' }} />
+      <div style={{ width: '100%', maxWidth: '520px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px' }}>
+        <button
+          onClick={onBack}
+          style={{ background: 'none', border: 'none', color: '#a3a3a3', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', cursor: 'pointer', fontFamily: 'inherit', padding: '4px' }}
+        >
+          <ArrowLeft size={14} /> Modes
+        </button>
+        <span style={{ fontSize: '11px', color: '#fbbf24' }}>★ {totalStars}/{levels.length * 3}</span>
+      </div>
+
+      {/* Level select */}
+      <div style={{ width: '100%', maxWidth: '520px', margin: '10px 0 14px' }}>
+        {[0, 20].filter(start => start < levels.length).map(start => (
+          <div key={start} style={{ marginBottom: '8px' }}>
+            <div style={{ fontSize: '10px', color: '#737373', letterSpacing: '2px', marginBottom: '4px' }}>{actFor(start)?.toUpperCase()}</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(10, 1fr)', gap: '4px' }}>
+              {levels.slice(start, start + 20).map((l, j) => {
+                const idx = start + j;
+                const locked = idx > unlockedIdx;
+                const sel = idx === selectedIdx;
+                const st = stars[l.level] ?? 0;
+                return (
+                  <button
+                    key={l.level}
+                    disabled={locked}
+                    onClick={() => onSelect(idx)}
+                    aria-label={`Mission ${l.level}${locked ? ' (locked)' : `, ${st} stars`}`}
+                    style={{
+                      aspectRatio: '1',
+                      borderRadius: '6px',
+                      border: `1px solid ${sel ? '#60a5fa' : l.boss ? '#ef444466' : '#ffffff1a'}`,
+                      background: sel ? 'rgba(96,165,250,0.18)' : locked ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.05)',
+                      color: locked ? '#404040' : l.boss ? '#fca5a5' : '#e5e5e5',
+                      fontSize: '11px',
+                      fontFamily: 'inherit',
+                      cursor: locked ? 'not-allowed' : 'pointer',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      lineHeight: 1,
+                      padding: 0,
+                    }}
+                  >
+                    {locked ? <Lock size={10} /> : l.level}
+                    {!locked && <span style={{ fontSize: '7px', color: '#fbbf24', marginTop: '2px', letterSpacing: '-1px' }}>{'★'.repeat(st)}{'·'.repeat(3 - st)}</span>}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+
       {/* Level number */}
       <motion.div
         initial={{ y: -10, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         style={{ fontSize: '11px', color: '#60a5fa', letterSpacing: '3px', marginBottom: '4px' }}
       >
-        LEVEL {level.level} OF 20
+        MISSION {level.level} OF {levels.length}
       </motion.div>
 
       {/* Title */}
@@ -156,9 +223,12 @@ export default function CampaignBriefing({ level, onStart }: CampaignBriefingPro
               fontWeight: 700,
             }}
           >
-            BOSS: {level.boss.replace(/_/g, ' ').toUpperCase()}
+            BOSS: {BOSS_DEFS[level.boss].name.toUpperCase()}
           </span>
         )}
+        <span style={{ fontSize: '10px', color: '#737373', padding: '4px 6px', width: '100%', textAlign: 'center' }}>
+          ★ clear · ★ take ≤25% damage · ★ under {parTime(level)}s
+        </span>
       </motion.div>
 
       {/* Start button */}

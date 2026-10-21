@@ -4,7 +4,7 @@
  */
 
 import React, { useEffect, useRef } from 'react';
-import { Zap } from 'lucide-react';
+import { Zap, Sparkles, Repeat2 } from 'lucide-react';
 import type { VirtualControls } from '../engine';
 
 /** Max distance (CSS px) the knob travels from the stick's centre. */
@@ -17,6 +17,12 @@ const REST_OFFSET_Y = 120;
 
 interface Props {
   controlsRef: React.MutableRefObject<VirtualControls>;
+  /** Receives the ability button so the game can paint its cooldown ring. */
+  abilityRef?: (el: HTMLElement | null) => void;
+  abilityColor?: string;
+  classLabel?: string;
+  classColor?: string;
+  canSwap?: boolean;
 }
 
 /**
@@ -31,7 +37,7 @@ interface Props {
  * on the window, which made the stick jump when you tapped fire). All visual
  * updates go straight to the DOM, so moving the stick costs no React renders.
  */
-export default function TouchControls({ controlsRef }: Props) {
+export default function TouchControls({ controlsRef, abilityRef, abilityColor = '#ffffff', classLabel = 'IgG', classColor = '#4ade80', canSwap = false }: Props) {
   const rootRef = useRef<HTMLDivElement>(null);
   const baseRef = useRef<HTMLDivElement>(null);
   const knobRef = useRef<HTMLDivElement>(null);
@@ -196,6 +202,36 @@ export default function TouchControls({ controlsRef }: Props) {
         }}
       >
         <Zap className="w-9 h-9 text-emerald-400" />
+      </div>
+
+      {/* Ability + antibody-class buttons (real buttons: they don't fire) */}
+      <div
+        className="absolute flex flex-col items-center gap-3"
+        style={{
+          right: 'calc(1.5rem + env(safe-area-inset-right))',
+          bottom: 'calc(10.5rem + env(safe-area-inset-bottom))',
+        }}
+      >
+        <button
+          ref={abilityRef}
+          aria-label="Use cell ability"
+          className="ability-btn relative w-14 h-14 rounded-full flex items-center justify-center border border-white/20"
+          style={{ color: abilityColor }}
+          onPointerDown={(e) => { e.stopPropagation(); e.preventDefault(); controlsRef.current.abilityPressed = true; }}
+        >
+          <Sparkles className="w-6 h-6 relative" />
+        </button>
+        {canSwap && (
+          <button
+            aria-label={`Switch antibody class (current ${classLabel})`}
+            className="w-12 h-12 rounded-full flex flex-col items-center justify-center bg-black/40 border font-mono text-[10px] font-bold leading-none"
+            style={{ borderColor: `${classColor}88`, color: classColor }}
+            onPointerDown={(e) => { e.stopPropagation(); e.preventDefault(); controlsRef.current.swapPressed = true; }}
+          >
+            <Repeat2 className="w-4 h-4 mb-0.5" />
+            {classLabel}
+          </button>
+        )}
       </div>
 
       {/* Subtle hint dividing the two zones */}

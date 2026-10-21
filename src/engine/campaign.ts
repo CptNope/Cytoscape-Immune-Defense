@@ -6,13 +6,14 @@
 import type { CampaignLevel } from './types';
 
 /**
- * 20 structured campaign levels telling the story of an immune response
+ * 30 structured campaign levels (two acts) telling the story of an immune response
  * from initial infection through to recovery.
  */
 export const CAMPAIGN_LEVELS: CampaignLevel[] = [
   // --- ACT 1: First Contact (Levels 1-5) ---
   {
     level: 1,
+    act: 'Act I — Infection',
     title: 'First Contact',
     briefing: 'A minor breach has been detected in the epithelial barrier. A small viral payload has entered the bloodstream. You are T-Cell Unit Alpha \u2014 the first responder. Neutralize all threats.',
     pathogens: [{ type: 'virus', count: 3 }],
@@ -188,14 +189,136 @@ export const CAMPAIGN_LEVELS: CampaignLevel[] = [
   {
     level: 20,
     title: 'Fungal Bloom',
-    briefing: 'One final threat remains \u2014 a massive fungal bloom has anchored itself deep in the tissue. It fills the area with toxic spore clouds and must be destroyed at its core. This is the final battle. For the host.',
+    briefing: 'One final threat remains \u2014 a massive fungal bloom has anchored itself deep in the tissue. Its hyphae feed and armour the core, and it fills the area with toxic spore clouds. Sever the hyphae, then destroy the core. For the host.',
     pathogens: [{ type: 'fungus', count: 3 }, { type: 'bacteria', count: 2 }],
     boss: 'fungal_bloom',
-    objectiveText: 'Destroy the Fungal Bloom \u2014 FINAL BOSS',
+    objectiveText: 'Destroy the Fungal Bloom \u2014 END OF ACT I',
+  },
+  // ---------------------------------------------------------------- Act II
+  {
+    level: 21,
+    act: 'Act II — Relapse',
+    title: 'Relapse',
+    briefing: 'Weeks later. The host is weakened and a second wave of infection has slipped past the barrier. Your memory cells remember the old enemies — but new ones are coming.',
+    pathogens: [{ type: 'virus', count: 4, variant: 'swift' }, { type: 'bacteria', count: 3 }, { type: 'prion', count: 6 }],
+    objectiveText: 'Contain the relapse',
+  },
+  {
+    level: 22,
+    title: 'Blood-Borne',
+    briefing: 'A mosquito bite has delivered Plasmodium — the malaria parasite. It hides inside red blood cells where antibodies can’t reach it. Watch for the infected cell’s faint ring-stage pulse, rupture it, and strike. Do NOT shoot healthy blood cells.',
+    pathogens: [{ type: 'parasite', count: 2 }],
+    boss: 'plasmodium',
+    objectiveText: 'Find and destroy Plasmodium',
+  },
+  {
+    level: 23,
+    title: 'Seasonal Surge',
+    briefing: 'Respiratory viruses are pouring in through the airways. Fast, numerous, and mutating. IgA is built for exactly this.',
+    pathogens: [{ type: 'virus', count: 5 }, { type: 'virus', count: 3, variant: 'swift' }, { type: 'bacteria', count: 2 }],
+    objectiveText: 'Neutralise the viral surge',
+  },
+  {
+    level: 24,
+    title: 'Antigenic Shift',
+    briefing: 'A novel influenza strain. It reassorts its surface proteins on the fly — whichever antibody class you rely on, it will learn to resist. Watch the strain readout and switch classes.',
+    pathogens: [{ type: 'virus', count: 3 }],
+    boss: 'influenza',
+    objectiveText: 'Outpace the shifting strain',
+  },
+  {
+    level: 25,
+    title: 'Opportunists',
+    briefing: 'With the immune system stretched thin, opportunistic fungi and biofilm-forming bacteria are colonising the vessel walls. Stalker parasites hunt in the gaps.',
+    pathogens: [{ type: 'fungus', count: 3 }, { type: 'biofilm', count: 2 }, { type: 'parasite', count: 3, variant: 'stalker' }],
+    objectiveText: 'Clear the opportunists',
+  },
+  {
+    level: 26,
+    title: 'Latent Threat',
+    briefing: 'A retrovirus has been detected. It targets T-cells — cells like you — hijacking them and hiding in latent reservoirs. Its spikes will infect you and slow your fire. Use your ability to purge the infection.',
+    pathogens: [{ type: 'bacteria', count: 2 }, { type: 'virus', count: 2 }],
+    boss: 'retrovirus',
+    objectiveText: 'Destroy the Retrovirus',
+  },
+  {
+    level: 27,
+    title: 'Angiogenesis',
+    briefing: 'Tumours are recruiting their own blood supply. Each one is growing faster than the last. Burn them out before they can spread.',
+    pathogens: [{ type: 'cancer', count: 3 }, { type: 'biofilm', count: 1 }, { type: 'bacteria', count: 3, variant: 'armored' }],
+    objectiveText: 'Starve the tumours',
+  },
+  {
+    level: 28,
+    title: 'Metastasis',
+    briefing: 'The primary tumour is feeding through three blood vessels and seeding new growths across the tissue. Cut the vessels to break its armour, then destroy it.',
+    pathogens: [{ type: 'prion', count: 6 }],
+    boss: 'metastatic_tumor',
+    objectiveText: 'Destroy the Metastatic Tumor',
+  },
+  {
+    level: 29,
+    title: 'Inflammation',
+    briefing: 'Everything that is left is converging. The tissue is inflamed, the host is feverish, and every pathogen class is present. Hold the line one more time.',
+    pathogens: [
+      { type: 'virus', count: 4, variant: 'swift' },
+      { type: 'bacteria', count: 3, variant: 'armored' },
+      { type: 'parasite', count: 3, variant: 'stalker' },
+      { type: 'fungus', count: 2 },
+      { type: 'cancer', count: 1 },
+    ],
+    objectiveText: 'Survive the inflammation',
+  },
+  {
+    level: 30,
+    title: 'Self vs Non-Self',
+    briefing: 'The final threat is one of our own. A T-cell has lost self-tolerance and is attacking the host — it moves like you, fires like you, and in its fury it triggers a cytokine storm. Find the gaps in the inflammation rings. Restore tolerance.',
+    pathogens: [],
+    boss: 'autoimmune',
+    objectiveText: 'Defeat the Autoimmune T-Cell — FINAL BOSS',
   },
 ];
+
 
 /** Time Attack constants */
 export const TIME_ATTACK_INITIAL_SECONDS = 60;
 export const TIME_ATTACK_KILL_BONUS_SECONDS = 2;
 export const TIME_ATTACK_BOSS_BONUS_SECONDS = 15;
+
+// --- Stars & par times ---
+
+const STARS_KEY = 'cyto-campaign-stars';
+
+/** Target clear time (seconds) for the 3rd star. */
+export function parTime(level: CampaignLevel): number {
+  const enemies = level.pathogens.reduce((n, e) => n + (e.type === 'prion' ? Math.ceil(e.count / 6) : e.count), 0);
+  return 35 + enemies * 4 + (level.boss ? 75 : 0);
+}
+
+/**
+ * 1 star for clearing, +1 for taking at most 25% of max health in damage,
+ * +1 for beating the par time.
+ */
+export function campaignStars(level: CampaignLevel, damageTaken: number, maxHealth: number, seconds: number): number {
+  let stars = 1;
+  if (damageTaken <= maxHealth * 0.25) stars++;
+  if (seconds <= parTime(level)) stars++;
+  return stars;
+}
+
+export function loadCampaignStars(): Record<number, number> {
+  try {
+    const raw = localStorage.getItem(STARS_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+/** Saves a result, keeping the best star count per level. */
+export function saveCampaignStars(levelNumber: number, stars: number): Record<number, number> {
+  const all = loadCampaignStars();
+  all[levelNumber] = Math.max(all[levelNumber] ?? 0, stars);
+  try { localStorage.setItem(STARS_KEY, JSON.stringify(all)); } catch {}
+  return all;
+}

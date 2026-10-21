@@ -5,6 +5,45 @@ All notable changes to Cytoscape: Immune Defense will be documented in this file
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2026-10-20 — Immune Response
+
+### Fixed
+- **Endless waves could never end** — split children were clamped to a minimum size *before* the "too small to split" check, so pathogens could keep splitting forever. Splitting now stops after three sizes, like classic Asteroids
+- **Parasites resisted every shot** — the resistance checked bullet speed including the ship's velocity, which was always over the limit. It now uses each antibody class's launch speed: IgG/IgA are resisted, IgM/IgE are not
+- **Fungal resistance ignored upgrades** — it set damage to a flat 0.5, cancelling Antibody Potency and Damage Boost. It's now a 50% multiplier
+- **Bomb one-shot bosses** — System Purge now deals 20% of a boss's max health instead
+- **Bacterial Colony segments never moved** and couldn't be hit; they're now real, chained, shootable segments
+- **No bosses after level 20** in Endless — bosses now rotate every 5 levels forever, scaling up each loop
+- **No invulnerability after hits** — overlapping pathogens could hit you every frame; you now get ~0.75s of i-frames
+- Overlapping HUD and audio buttons at desktop widths
+
+### Added — Bosses & enemy attacks
+- Enemy projectile system (virions, toxins, spores, spikes, enemy antibodies, merozoites), hazards (spore clouds, inflammation rings) and telegraphs (lunge lines, landing circles)
+- Status effects: **Infected** (slower fire, cured by abilities or power-ups) and **Slowed**
+- Reworked bosses: Mega Virus (virion rings, capsid fracture), Bacterial Colony (chain that fragments), Parasitic Worm (armoured body, burrow & lunge), Fungal Bloom (regrowing hyphae, spore clouds)
+- New bosses: **Plasmodium**, **Retrovirus**, **Influenza**, **Metastatic Tumor**, **Autoimmune T-Cell**
+- Boss health bar with phase/strain readout, intro banners with a biology tagline, slow-motion on boss kills
+- Boss health scales with endless loops and your damage upgrades
+- **Campaign Act II** — missions 21–30 introduce the new bosses; star ratings (clear / ≤25% damage / par time) and a level-select grid
+
+### Added — Progression
+- **Antibody classes**: IgG, IgM (spread, +25% vs bacteria), IgA (piercing, +30% vs viruses), IgE (2.5× vs parasites). Unlock by level, swap mid-run with Q / ⇄
+- **Cell types** with active abilities: Killer T-Cell (Perforin Burst), Macrophage (Phagocytosis; passively eats small pathogens), NK Cell (Lytic Dash), Plasma B-Cell (homing shots; Antibody Storm)
+- **Clonal selection**: pick 1 of 3 mutations after each wave (12 mutations incl. NK escort drones, complement cascade, opsonization)
+- **Immune memory**: permanent bonus damage vs each pathogen type, up to +30%
+- **Cytokine loadout** (2 slots) with two new cytokines: Interferon and Fever
+- Upgrades now go to **level 10** (diminishing returns past 5), free **respec**, purchasable **membrane colours**
+- **Codex** with real biology for every pathogen and boss
+
+### Added — Polish & accessibility
+- Cell-lysis death rings, hit flashes, opsonization tags, cell-specific ship visuals
+- First-run tutorial that ticks off as you play
+- Colorblind-friendly palette (Okabe–Ito), toggle in the menu or in-game settings
+
+### Changed
+- Old saves migrate automatically: the first two unlocked cytokines are equipped, existing upgrades are kept
+- Boss-fight logic lives in the engine (`bosses.ts`) and is covered by headless simulation tests
+
 ## [1.11.0] - 2026-10-20
 
 ### Changed

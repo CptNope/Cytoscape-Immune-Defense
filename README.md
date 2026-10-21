@@ -6,7 +6,7 @@
 A cellular biology themed Asteroids-style arcade game where you pilot a **T-cell** through the bloodstream, defending the host against waves of invading pathogens.
 
 [![Deploy to GitHub Pages](https://github.com/CptNope/Cytoscape-Immune-Defense/actions/workflows/deploy.yml/badge.svg)](https://github.com/CptNope/Cytoscape-Immune-Defense/actions/workflows/deploy.yml)
-![Version](https://img.shields.io/badge/version-1.11.0-emerald)
+![Version](https://img.shields.io/badge/version-2.0.0-emerald)
 ![License](https://img.shields.io/badge/license-Apache--2.0-blue)
 
 **[Play Now](https://cptnope.github.io/Cytoscape-Immune-Defense/)** — Installable as a PWA on any device
@@ -27,11 +27,13 @@ The game is built as a **Progressive Web App (PWA)** and can be installed on And
 
 ### Controls
 
-| Platform | Movement | Fire |
-|----------|----------|------|
-| **Desktop** | `WASD` or `Arrow Keys` | `Space` or `F` |
-| **Mobile** | Touch & drag anywhere on the left half | Hold anywhere on the right half |
-| **Pause** | `Escape` (desktop) / Pause button (mobile) | |
+| Action | Desktop | Mobile |
+|--------|---------|--------|
+| **Move** | `WASD` / `Arrow Keys` | Touch & drag anywhere on the left half |
+| **Fire** | `Space` or `F` | Hold anywhere on the right half |
+| **Cell ability** | `E` or `Shift` | ✦ button |
+| **Switch antibody class** | `Q` or `Tab` | ⇄ button |
+| **Pause** | `Escape` | Pause button |
 
 ### Pathogens
 
@@ -42,6 +44,34 @@ The game is built as a **Progressive Web App (PWA)** and can be installed on And
 | **Parasite** | Purple | **Tracks the player**, may have **Stalker** variant (aggressive homing, pink) |
 | **Fungus** | Green | Large, slow, damage-resistant with branching spore structures |
 
+Later waves add **prions** (near-invisible swarms), **cancer cells** (grow and copy themselves) and **biofilms** (shielded colonies).
+
+### Bosses
+
+A boss appears every 5 levels in Endless mode, cycling through all nine and getting tougher each loop. Each has attacks, telegraphs and phases based on the real organism:
+
+| Boss | Mechanic |
+|------|----------|
+| **Mega Virus** | Shielded capsid fires virion rings; splits off swift viruses at half health |
+| **Bacterial Colony** | Core is protected while 3+ segments remain; breaking a link fragments the chain |
+| **Parasitic Worm** | Armoured body deflects shots; burrows, then lunges along a telegraphed line |
+| **Fungal Bloom** | Hyphae armour and heal the core; spore clouds slow and damage you |
+| **Plasmodium** | Hides inside red blood cells — find the infected one (don't shoot healthy cells!) |
+| **Retrovirus** | Infects you (slower fire), hijacks T-cells, goes latent to heal |
+| **Influenza** | Antigenic shift: resists one antibody class at a time — switch classes |
+| **Metastatic Tumor** | Blood vessels armour it; seeds new tumours across the tissue |
+| **Autoimmune T-Cell** | Final boss: mirrors you, fires back, triggers cytokine-storm rings |
+
+### Progression
+
+- **Cell types** — Killer T-Cell, Macrophage, NK Cell, Plasma B-Cell, each with an active ability
+- **Antibody classes** — IgG (standard), IgM (spread), IgA (piercing), IgE (anti-parasite); swap mid-run
+- **Clonal selection** — pick 1 of 3 mutations after each wave (spread shots, piercing, NK escort drones…)
+- **Immune memory** — permanent bonus damage against every pathogen type you've killed enough of
+- **Upgrades** to level 10, a 2-slot **cytokine** loadout, cosmetic membranes, and free respec
+- **Codex** — real biology for every pathogen and boss, unlocked as you defeat them
+- **Campaign** — 30 missions across two acts with star ratings and level select
+
 ### Power-Ups
 
 Destroyed pathogens have a 15% chance to drop a power-up:
@@ -51,13 +81,13 @@ Destroyed pathogens have a 15% chance to drop a power-up:
 | **Rapid Fire** | Faster shot rate | 5 seconds |
 | **Shield** | Absorbs damage, bounces pathogens away | 5 seconds |
 | **Damage Boost** | Double antibody damage | 5 seconds |
-| **System Purge** | Destroys all pathogens on screen | Instant |
+| **System Purge** | Destroys all pathogens on screen (bosses take 20% damage) | Instant |
 
 ### Mechanics
 
 - **Wave System** — Clear all pathogens to advance to the next level; each wave spawns more enemies with increased speed
 - **Pathogen Splitting** — Destroyed pathogens split into two smaller ones (like Asteroids) until they're too small
-- **Resistance System** — Fungi reduce incoming damage; parasites resist high-speed projectiles
+- **Resistance System** — Fungi take half damage; parasites resist fast antibodies (IgG/IgA) but not slow ones (IgM/IgE)
 - **Variant System** — Some pathogens spawn with special traits: armored, swift, or stalker
 - **Screen Wrap** — All entities wrap around screen edges
 
@@ -155,13 +185,29 @@ To push an update to all installed clients:
 │   ├── index.css         # Global styles (Tailwind)
 │   ├── vite-env.d.ts     # Type declarations
 │   ├── components/
-│   │   ├── Game.tsx       # Game component (React integration layer)
-│   │   └── PWAUpdatePrompt.tsx  # Service worker update UI
+│   │   ├── Game.tsx       # Game component (React integration layer, game loop)
+│   │   ├── TouchControls.tsx    # Twin-zone touch controls + ability/swap buttons
+│   │   ├── DraftOverlay.tsx     # Clonal selection between waves
+│   │   ├── LoadoutPanel.tsx     # Cell type, cytokines, cosmetics
+│   │   ├── CodexPanel.tsx       # Pathogen encyclopedia & immune memory
+│   │   ├── Tutorial.tsx         # First-run hints
+│   │   └── …                    # Menus, briefing, stats, audio, PWA prompt
 │   └── engine/
 │       ├── types.ts       # All game interfaces (Vector, Entity, Pathogen, etc.)
 │       ├── constants.ts   # Game physics & balance constants
 │       ├── physics.ts     # Pure functions: collision, wrapping, velocity
 │       ├── renderer.ts    # Canvas rendering (extracted draw logic)
+│       ├── bosses.ts      # All 9 bosses: AI, attacks, phases (engine-only, tested headlessly)
+│       ├── combat.ts      # Damage rules: resistances, classes, memory, armour
+│       ├── hazards.ts     # Enemy projectiles, spore clouds, telegraphs, rings
+│       ├── weapons.ts     # Antibody classes (IgG/IgM/IgA/IgE)
+│       ├── cells.ts       # Playable cell types & abilities
+│       ├── mutations.ts   # Clonal selection mutations
+│       ├── memory.ts      # Immune memory
+│       ├── progression.ts # XP, upgrades, loadout, cosmetics, persistence
+│       ├── campaign.ts    # 30 campaign missions, stars, par times
+│       ├── codex.ts       # Biology facts
+│       ├── interpolation.ts # Render interpolation & in-place compaction
 │       ├── scores.ts      # localStorage top scores persistence
 │       ├── index.ts       # Barrel re-exports
 │       └── __tests__/     # Unit tests (vitest)

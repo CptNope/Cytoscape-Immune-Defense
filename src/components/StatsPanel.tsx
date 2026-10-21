@@ -29,7 +29,11 @@ export default function StatsPanel({ profile, onBack }: StatsPanelProps) {
     { key: 'bacteria', label: 'Bacteria', color: 'text-red-400' },
     { key: 'parasite', label: 'Parasites', color: 'text-purple-400' },
     { key: 'fungus', label: 'Fungi', color: 'text-emerald-400' },
+    { key: 'prion', label: 'Prions', color: 'text-slate-400' },
+    { key: 'cancer', label: 'Cancer cells', color: 'text-pink-400' },
+    { key: 'biofilm', label: 'Biofilms', color: 'text-sky-400' },
   ];
+  const bossesDefeated = Object.values<number>(stats.bossKills ?? {}).reduce((a, b) => a + b, 0);
 
   return (
     <motion.div
@@ -47,6 +51,7 @@ export default function StatsPanel({ profile, onBack }: StatsPanelProps) {
         <div className="grid grid-cols-2 gap-2 sm:gap-3">
           <StatCard label="Total Runs" value={stats.totalRuns.toLocaleString()} />
           <StatCard label="Highest Level" value={stats.highestLevel.toString()} />
+          <StatCard label="Bosses Defeated" value={bossesDefeated.toLocaleString()} />
           <StatCard label="Lifetime Score" value={stats.totalScore.toLocaleString()} />
           <StatCard label="Time Played" value={formatTime(stats.totalTimePlayed)} />
           <StatCard label="Total Kills" value={stats.totalKills.toLocaleString()} className="col-span-2" />

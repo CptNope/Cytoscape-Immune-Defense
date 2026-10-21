@@ -4,14 +4,16 @@
  */
 
 import React, { useState } from 'react';
-import { Volume2, VolumeX, Music, Zap } from 'lucide-react';
+import { Volume2, VolumeX, Music, Zap, Eye } from 'lucide-react';
 import type { AudioEngine } from '../engine';
 
 interface AudioControlsProps {
   audio: AudioEngine;
+  colorblind?: boolean;
+  onColorblindChange?: (on: boolean) => void;
 }
 
-export default function AudioControls({ audio }: AudioControlsProps) {
+export default function AudioControls({ audio, colorblind, onColorblindChange }: AudioControlsProps) {
   const [settings, setSettings] = useState(audio.getSettings());
   const [expanded, setExpanded] = useState(false);
 
@@ -84,6 +86,17 @@ export default function AudioControls({ audio }: AudioControlsProps) {
               className="w-full h-1 bg-white/10 rounded-full appearance-none cursor-pointer accent-emerald-500"
             />
           </div>
+          {onColorblindChange && (
+            <label className="flex items-center gap-2 text-[10px] uppercase text-white/50 tracking-wider cursor-pointer">
+              <input
+                type="checkbox"
+                checked={!!colorblind}
+                onChange={e => onColorblindChange(e.target.checked)}
+                className="accent-emerald-500"
+              />
+              <Eye className="w-3 h-3" /> Colorblind
+            </label>
+          )}
         </div>
       )}
     </div>
