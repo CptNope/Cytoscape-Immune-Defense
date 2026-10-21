@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useRef, type ReactNode, type RefObject } from 'react';
+import { Fragment, useRef, type ReactNode, type RefObject } from 'react';
 import {
   motion, MotionConfig, useReducedMotion, useScroll, useTransform, type Variants,
 } from 'motion/react';
@@ -225,14 +225,14 @@ export default function LandingPage({ onPlay }: Props) {
                 </SectionTitle>
                 <div className="grid gap-4 md:grid-cols-3">
                   {STEPS.map((s, i) => (
-                    <Card key={s.title}>
+                    <Fragment key={s.title}><Card>
                       <div className="flex items-center gap-3 mb-3">
                         <span className="grid place-items-center w-10 h-10 rounded-full bg-emerald-400/15 text-emerald-300 font-mono text-sm">{i + 1}</span>
                         <s.icon className="w-5 h-5 text-emerald-300" />
                       </div>
                       <h3 className="text-xl font-bold mb-1.5">{s.title}</h3>
                       <p className="text-white/70 leading-relaxed">{s.body}</p>
-                    </Card>
+                    </Card></Fragment>
                   ))}
                 </div>
               </Reveal>
@@ -246,12 +246,12 @@ export default function LandingPage({ onPlay }: Props) {
                 </SectionTitle>
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                   {pathogens.map((e, i) => (
-                    <Card key={e.id} className="flex flex-col gap-3">
+                    <Fragment key={e.id}><Card className="flex flex-col gap-3">
                       <OrganismArt src={codexArtUrl(e.key, e.color)} size={72} delay={i * 0.05} />
                       <h3 className="text-xl font-extrabold" style={{ color: e.color }}>{e.name}</h3>
                       <p className="text-sm text-white/75 leading-relaxed">{e.inGame}</p>
                       <p className="text-xs text-emerald-300/90 leading-relaxed mt-auto pt-3 border-t border-white/10">{e.tip}</p>
-                    </Card>
+                    </Card></Fragment>
                   ))}
                 </div>
               </Reveal>
@@ -265,13 +265,13 @@ export default function LandingPage({ onPlay }: Props) {
                 </SectionTitle>
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                   {ANTIBODY_CLASSES.map(c => (
-                    <Card key={c.id}>
+                    <Fragment key={c.id}><Card>
                       <div className="flex items-baseline justify-between mb-2">
                         <h3 className="text-2xl font-black font-mono" style={{ color: c.color }}>{c.name}</h3>
                         <span className="text-[11px] uppercase tracking-wider text-white/50">Level {c.unlockPlayerLevel}</span>
                       </div>
                       <p className="text-sm text-white/75 leading-relaxed">{c.description}</p>
-                    </Card>
+                    </Card></Fragment>
                   ))}
                 </div>
               </Reveal>
@@ -283,7 +283,7 @@ export default function LandingPage({ onPlay }: Props) {
                 <SectionTitle kicker="Choose your cell" title="Four immune cells, four play styles." />
                 <div className="grid gap-4 sm:grid-cols-2">
                   {CELL_TYPES.map((c, i) => (
-                    <Card key={c.id} className="flex gap-4 items-start">
+                    <Fragment key={c.id}><Card className="flex gap-4 items-start">
                       <OrganismArt src={cellArtUrl(c.id, c.color)} size={84} delay={i * 0.08} />
                       <div className="space-y-1.5">
                         <div className="flex flex-wrap items-baseline gap-x-3">
@@ -293,7 +293,7 @@ export default function LandingPage({ onPlay }: Props) {
                         <p className="text-sm text-white/75 leading-relaxed">{c.description}</p>
                         <p className="text-sm"><span className="font-semibold text-white/90">{c.ability.name}:</span> <span className="text-white/65">{c.ability.description}</span></p>
                       </div>
-                    </Card>
+                    </Card></Fragment>
                   ))}
                 </div>
               </Reveal>
@@ -322,11 +322,11 @@ export default function LandingPage({ onPlay }: Props) {
                 <SectionTitle kicker="Grow stronger" title="An immune system that learns." />
                 <div className="grid gap-4 sm:grid-cols-2">
                   {GROWTH.map(g => (
-                    <Card key={g.title}>
+                    <Fragment key={g.title}><Card>
                       <g.icon className="w-6 h-6 text-emerald-300 mb-3" />
                       <h3 className="text-xl font-bold mb-1.5">{g.title}</h3>
                       <p className="text-white/70 leading-relaxed">{g.body}</p>
-                    </Card>
+                    </Card></Fragment>
                   ))}
                 </div>
               </Reveal>
