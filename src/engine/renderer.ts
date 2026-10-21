@@ -7,8 +7,12 @@ import type {
   Pathogen, Antibody, Particle, PowerUp, FloatingText, Ship, ActivePowerUps,
   EnemyProjectile, Hazard, LysisEffect, PlayerStatus, CellTypeId, Vector,
 } from './types';
-import { getAntibodyClass } from './weapons';
+import { getAntibodyClass, ANTIBODY_CLASSES } from './weapons';
 import { randomRange } from './physics';
+import {
+  artForPathogen, drawArt, isOriented, anim, preloadArt, CELL_ART, type ArtColors, type ArtId,
+} from './art';
+import { motionOf, spawnScale, steer } from './art/motion';
 
 /**
  * Render quality. 'low' disables canvas shadow glows (by far the most
@@ -35,6 +39,15 @@ const PALETTE_COLORBLIND: Record<string, string> = {
   host_rbc: '#D55E00', decoy_tcell: '#F5F5F5', vessel: '#A0522D',
 };
 let palette = PALETTE_DEFAULT;
+
+/** Render clock (seconds) and time since the previous frame, for animation. */
+let renderNow = 0;
+let frameDt = 0;
+/** Backing pixels per world unit: picks the sprite resolution. */
+let pxScale = 1;
+/** Reused colour objects (no per-frame allocation). */
+const artColors: ArtColors = { main: '#ffffff', alt: '#ffffff' };
+const shipColors: ArtColors = { main: '#ffffff', alt: '#4ade80' };
 
 /** Readable names for labels. */
 const TYPE_LABELS: Record<string, string> = {
@@ -88,6 +101,13 @@ export function render(
   glowEnabled = state.quality !== 'low';
   lowDetail = state.quality === 'low';
   palette = state.colorblind ? PALETTE_COLORBLIND : PALETTE_DEFAULT;
+  pxScale = scale;
+  const now = (typeof performance !== 'undefined' ? performance.now() : Date.now()) / 1000;
+  frameDt = renderNow > 0 ? Math.min(0.1, Math.max(0, now - renderNow)) : 0;
+  renderNow = now;
+  anim.t = now;
+  anim.low = lowDetail;
+  if (gameState !== 'playing') warmSprites(state);
 
   // Draw everything in world units; the transform maps them to backing pixels.
   ctx.setTransform(scale, 0, 0, scale, 0, 0);
@@ -305,22 +325,63 @@ function drawFloatingTexts(ctx: CanvasRenderingContext2D, texts: FloatingText[])
   });
 }
 
+/**
+ * Antibodies drawn as their real shapes, one batched path per class:
+ * IgG / IgE a single Y (IgE with a longer stem), IgA a tail-to-tail dimer,
+ * IgM a five-armed pentamer.
+ */
 function drawAntibodies(ctx: CanvasRenderingContext2D, antibodies: Antibody[]): void {
   if (antibodies.length === 0) return;
-  // Batch every antibody into a single path / single stroke call
-  ctx.strokeStyle = '#4ade80';
   ctx.lineWidth = 2;
-  ctx.beginPath();
-  for (let i = 0; i < antibodies.length; i++) {
-    const a = antibodies[i];
-    const c = Math.cos(a.rotation), s = Math.sin(a.rotation);
-    const x = a.pos.x, y = a.pos.y;
-    ctx.moveTo(x - 4 * c, y - 4 * s);
-    ctx.lineTo(x + 4 * c, y + 4 * s);
-    ctx.moveTo(x + 2 * s, y - 2 * c);
-    ctx.lineTo(x - 2 * s, y + 2 * c);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  for (let ci = 0; ci < ANTIBODY_CLASSES.length; ci++) {
+    const cls = ANTIBODY_CLASSES[ci];
+    let any = false;
+    ctx.beginPath();
+    for (let i = 0; i < antibodies.length; i++) {
+      const a = antibodies[i];
+      if ((a.cls ?? 'IgG') !== cls.id) continue;
+      any = true;
+      const c = Math.cos(a.rotation), s = Math.sin(a.rotation);
+      const x = a.pos.x, y = a.pos.y;
+      if (cls.id === 'IgM') {
+        for (let k = 0; k < 5; k++) {
+          const ang = a.rotation + (k / 5) * Math.PI * 2;
+          const kc = Math.cos(ang), ks = Math.sin(ang);
+          const tx = x + kc * 4.5, ty = y + ks * 4.5;
+          ctx.moveTo(x + kc * 1.5, y + ks * 1.5);
+          ctx.lineTo(tx, ty);
+          ctx.lineTo(tx + kc * 2.5 - ks * 2, ty + ks * 2.5 + kc * 2);
+          ctx.moveTo(tx, ty);
+          ctx.lineTo(tx + kc * 2.5 + ks * 2, ty + ks * 2.5 - kc * 2);
+        }
+      } else if (cls.id === 'IgA') {
+        // Two Ys joined at the stem (secretory dimer)
+        for (const d of [1, -1]) {
+          const fx = x + c * 2 * d, fy = y + s * 2 * d;
+          ctx.moveTo(x, y);
+          ctx.lineTo(fx, fy);
+          ctx.lineTo(fx + (c * 4 - s * 3.5 * d) * d, fy + (s * 4 + c * 3.5 * d) * d);
+          ctx.moveTo(fx, fy);
+          ctx.lineTo(fx + (c * 4 + s * 3.5 * d) * d, fy + (s * 4 - c * 3.5 * d) * d);
+        }
+      } else {
+        const stem = cls.id === 'IgE' ? 7 : 5;
+        ctx.moveTo(x - c * stem, y - s * stem);
+        ctx.lineTo(x, y);
+        ctx.lineTo(x + c * 4.5 - s * 3.5, y + s * 4.5 + c * 3.5);
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + c * 4.5 + s * 3.5, y + s * 4.5 - c * 3.5);
+      }
+    }
+    if (any) {
+      ctx.strokeStyle = cls.color;
+      ctx.stroke();
+    }
   }
-  ctx.stroke();
+  ctx.lineCap = 'butt';
+  ctx.lineJoin = 'miter';
 }
 
 function drawPathogens(ctx: CanvasRenderingContext2D, pathogens: Pathogen[]): void {
@@ -360,59 +421,59 @@ function drawPathogens(ctx: CanvasRenderingContext2D, pathogens: Pathogen[]): vo
     }
     if (p.hidden) return;
 
+    const color = pathogenColor(p);
+    const art = artForPathogen(p);
+    const st = motionOf(p, renderNow, p.rotation, p.isBossPart ? 0.6 : 0.45);
+    const oriented = isOriented(art);
+    const angle = oriented ? steer(st, p.vel, frameDt) : p.rotation;
+    const speed = Math.sqrt(p.vel.x * p.vel.x + p.vel.y * p.vel.y);
+    const hit = Math.min(1, (p.hitFlash ?? 0) / 8);
+    const size = spawnScale(st, renderNow) * (1 + 0.02 * Math.sin(renderNow * 2.2 + p.id));
+    // Stretch along the direction of travel; squash when hit
+    let sx = size, sy = size;
+    if (oriented) {
+      const stretch = Math.min(0.14, speed * 0.035);
+      sx *= 1 + stretch + 0.1 * hit;
+      sy *= 1 - stretch * 0.6 - 0.12 * hit;
+    } else {
+      sx *= 1 - 0.1 * hit;
+      sy = sx;
+    }
+
     ctx.save();
     ctx.translate(p.pos.x, p.pos.y);
-    ctx.rotate(p.rotation);
+    ctx.rotate(angle);
 
     // Apply prion opacity
     if (p.opacity !== undefined) {
       ctx.globalAlpha = p.opacity;
     }
 
-    const color = pathogenColor(p);
+    ctx.save();
+    ctx.scale(sx, sy);
+    artColors.main = color;
+    artColors.alt = altColor(p, color);
+    anim.seed = p.id * 1.37;
+    anim.speed = speed;
+    anim.level = artLevel(p);
+    // Big targets flash softly so sustained fire doesn't wash them out
+    const flash = hit * (p.radius > 30 ? 0.35 : 0.8);
+    if (!drawArt(ctx, art, p.id, artColors, p.radius, pxScale, { flash })) {
+      drawPlaceholder(ctx, p.radius, color);
+    }
+    ctx.restore();
+
+    if (p.type === 'host_rbc') {
+      drawHostCellOverlay(ctx, p, pathogens);
+      ctx.restore();
+      return;
+    }
 
     ctx.strokeStyle = color;
     ctx.shadowColor = color;
     ctx.shadowBlur = glow(p.isBoss ? 25 : p.variant ? 20 : 10);
     ctx.fillStyle = `${color}1a`;
     ctx.lineWidth = p.isBoss ? 3 : p.variant === 'armored' ? 4 : 2;
-
-    if (p.type === 'host_rbc') {
-      drawHostCell(ctx, p, pathogens);
-      ctx.restore();
-      return;
-    } else if (p.type === 'decoy_tcell') {
-      drawRogueTCell(ctx, p, color);
-    } else if (p.type === 'vessel') {
-      drawVessel(ctx, p, color);
-    } else if (p.isBoss && p.bossType === 'parasitic_worm') {
-      drawWormHead(ctx, p);
-    } else if (p.isBoss && p.bossType === 'plasmodium') {
-      drawPlasmodium(ctx, p);
-    } else if (p.isBoss && p.bossType === 'retrovirus') {
-      drawSpikedVirus(ctx, p, '#f0abfc', 14);
-    } else if (p.isBoss && p.bossType === 'influenza') {
-      drawSpikedVirus(ctx, p, getAntibodyClass(p.resistClass).color, 18);
-    } else if (p.type === 'parasite' && !p.isBoss) {
-      drawParasite(ctx, p, color);
-    } else if (p.type === 'fungus') {
-      drawFungus(ctx, p);
-    } else if (p.type === 'prion') {
-      drawPrion(ctx, p);
-    } else if (p.type === 'cancer') {
-      drawCancer(ctx, p);
-    } else if (p.type === 'biofilm') {
-      drawBiofilm(ctx, p);
-    } else {
-      drawStandardPathogen(ctx, p);
-    }
-
-    // Internal details (skip for prion — too small)
-    if (p.type !== 'prion' && p.type !== 'decoy_tcell' && p.type !== 'vessel') {
-      ctx.beginPath();
-      ctx.arc(0, 0, p.radius * 0.3, 0, Math.PI * 2);
-      ctx.stroke();
-    }
 
     // Any shielded/invulnerable target gets a visible shield
     if (p.invulnerable) {
@@ -432,7 +493,7 @@ function drawPathogens(ctx: CanvasRenderingContext2D, pathogens: Pathogen[]): vo
 
     // Mega Virus charging its virion ring
     if (p.isBoss && p.boss?.data.charging) {
-      ctx.globalAlpha = 0.25 + 0.25 * Math.sin(Date.now() * 0.03);
+      ctx.globalAlpha = 0.15 + 0.15 * Math.sin(Date.now() * 0.03);
       ctx.fillStyle = '#fbbf24';
       ctx.beginPath();
       ctx.arc(0, 0, p.radius * 0.8, 0, Math.PI * 2);
@@ -463,19 +524,6 @@ function drawPathogens(ctx: CanvasRenderingContext2D, pathogens: Pathogen[]): vo
       ctx.beginPath();
       ctx.arc(0, 0, p.radius + 4, 0, Math.PI * 2);
       ctx.stroke();
-      ctx.restore();
-    }
-
-    // Hit flash
-    if (p.hitFlash && p.hitFlash > 0) {
-      ctx.save();
-      ctx.shadowBlur = 0;
-      // Big targets flash softly so sustained fire doesn't wash them out
-      ctx.globalAlpha = (p.hitFlash / 8) * (p.radius > 30 ? 0.3 : 0.75);
-      ctx.fillStyle = '#ffffff';
-      ctx.beginPath();
-      ctx.arc(0, 0, p.radius * 0.95, 0, Math.PI * 2);
-      ctx.fill();
       ctx.restore();
     }
 
@@ -523,162 +571,49 @@ function pathogenColor(p: Pathogen): string {
   return palette[p.type] ?? palette.bacteria;
 }
 
-function drawParasite(ctx: CanvasRenderingContext2D, p: Pathogen, _color: string): void {
-  ctx.beginPath();
-  ctx.ellipse(0, 0, p.radius, p.radius * 0.6, 0, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.fill();
-
-  // Flagella
-  const flagellaCount = p.variant === 'stalker' ? 3 : 1;
-  for (let j = 0; j < flagellaCount; j++) {
-    ctx.save();
-    ctx.rotate((j - (flagellaCount - 1) / 2) * 0.3);
-    ctx.beginPath();
-    ctx.moveTo(-p.radius, 0);
-    const offset = Math.sin(Date.now() * 0.01 + j) * 10;
-    ctx.bezierCurveTo(-p.radius - 20, -10 + offset, -p.radius - 10, 10 + offset, -p.radius - (p.variant === 'stalker' ? 50 : 30), offset);
-    ctx.stroke();
-    ctx.restore();
-  }
+/** Secondary art colour: embedded bacteria, spike proteins, budding virions. */
+function altColor(p: Pathogen, color: string): string {
+  if (p.type === 'biofilm') return palette.bacteria;
+  if (p.isBoss && p.bossType === 'retrovirus') return '#f0abfc';
+  if (p.isBoss && p.bossType === 'influenza') return getAntibodyClass(p.resistClass).color;
+  if (p.type === 'decoy_tcell') return palette === PALETTE_COLORBLIND ? '#CC79A7' : '#e879f9';
+  return color;
 }
 
-function drawFungus(ctx: CanvasRenderingContext2D, p: Pathogen): void {
-  ctx.beginPath();
-  for (let i = 0; i < p.sides; i++) {
-    const angle = (i / p.sides) * Math.PI * 2;
-    const r = p.radius * p.noise[i];
-    const x = Math.cos(angle) * r;
-    const y = Math.sin(angle) * r;
-    if (i === 0) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
-
-    // Add "spores" or branches
-    const bx = Math.cos(angle) * (r + 10);
-    const by = Math.sin(angle) * (r + 10);
-    ctx.moveTo(x, y);
-    ctx.lineTo(bx, by);
-    ctx.arc(bx, by, 2, 0, Math.PI * 2);
-  }
-  ctx.closePath();
-  ctx.stroke();
-  ctx.fill();
+/** Type-specific 0..1 level the art animates with. */
+function artLevel(p: Pathogen): number {
+  if (p.type === 'biofilm') return p.maxShieldHealth ? Math.max(0, (p.shieldHealth ?? 0) / p.maxShieldHealth) : 0;
+  if (p.isBoss && p.boss?.data.charging) return 1;
+  return 0;
 }
 
-function drawStandardPathogen(ctx: CanvasRenderingContext2D, p: Pathogen): void {
+/** Shown for the frame or two before an organism's sprite has been rasterised. */
+function drawPlaceholder(ctx: CanvasRenderingContext2D, r: number, color: string): void {
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = color;
+  ctx.fillStyle = `${color}1a`;
+  ctx.lineWidth = 2;
   ctx.beginPath();
-  for (let i = 0; i < p.sides; i++) {
-    const angle = (i / p.sides) * Math.PI * 2;
-    const r = p.radius * p.noise[i];
-    const x = Math.cos(angle) * r;
-    const y = Math.sin(angle) * r;
-    if (i === 0) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
-  }
-  ctx.closePath();
-  ctx.stroke();
+  ctx.arc(0, 0, r, 0, Math.PI * 2);
   ctx.fill();
-
-  if (p.variant === 'armored') {
-    ctx.beginPath();
-    for (let i = 0; i < p.sides; i++) {
-      const angle = (i / p.sides) * Math.PI * 2;
-      const r = (p.radius - 8) * p.noise[i];
-      const x = Math.cos(angle) * r;
-      const y = Math.sin(angle) * r;
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    }
-    ctx.closePath();
-    ctx.stroke();
-  }
-}
-
-function drawPrion(ctx: CanvasRenderingContext2D, p: Pathogen): void {
-  // Tiny jagged shape — nearly invisible
-  ctx.beginPath();
-  for (let i = 0; i < p.sides; i++) {
-    const angle = (i / p.sides) * Math.PI * 2;
-    const r = p.radius * (p.noise[i] ?? 1);
-    const x = Math.cos(angle) * r;
-    const y = Math.sin(angle) * r;
-    if (i === 0) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
-  }
-  ctx.closePath();
-  ctx.stroke();
-  ctx.fill();
-}
-
-function drawCancer(ctx: CanvasRenderingContext2D, p: Pathogen): void {
-  // Blobby irregular shape that looks organic/tumorous
-  ctx.beginPath();
-  for (let i = 0; i < p.sides; i++) {
-    const angle = (i / p.sides) * Math.PI * 2;
-    const wobble = Math.sin(Date.now() * 0.002 + i * 0.7) * 3;
-    const r = (p.radius + wobble) * (p.noise[i] ?? 1);
-    const x = Math.cos(angle) * r;
-    const y = Math.sin(angle) * r;
-    if (i === 0) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
-  }
-  ctx.closePath();
-  ctx.stroke();
-  ctx.fillStyle = '#f472b620';
-  ctx.fill();
-
-  // Inner dividing cells (mitosis look)
-  ctx.beginPath();
-  ctx.arc(-p.radius * 0.2, 0, p.radius * 0.25, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.arc(p.radius * 0.2, 0, p.radius * 0.25, 0, Math.PI * 2);
   ctx.stroke();
 }
 
-function drawBiofilm(ctx: CanvasRenderingContext2D, p: Pathogen): void {
-  const hasShield = (p.shieldHealth ?? 0) > 0;
+const WARM_ART: [ArtId, keyof typeof PALETTE_DEFAULT, number][] = [
+  ['virus', 'virus', 30], ['phage', 'swift', 20], ['bacterium', 'bacteria', 30], ['bacterium_armored', 'bacteria', 30],
+  ['trypanosome', 'parasite', 25], ['giardia', 'stalker', 25], ['yeast', 'fungus', 40], ['prion', 'prion', 8],
+  ['cancer', 'cancer', 30], ['biofilm', 'biofilm', 35],
+];
 
-  // Outer shield layer
-  if (hasShield) {
-    ctx.save();
-    ctx.strokeStyle = '#38bdf8';
-    ctx.lineWidth = 3;
-    ctx.shadowColor = '#38bdf8';
-    ctx.shadowBlur = glow(20);
-    ctx.globalAlpha = 0.4 + (p.shieldHealth! / (p.maxShieldHealth ?? 1)) * 0.4;
-    ctx.beginPath();
-    ctx.arc(0, 0, p.radius + 5, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.globalAlpha = 0.1;
-    ctx.fillStyle = '#38bdf8';
-    ctx.fill();
-    ctx.restore();
+/** Rasterise the common sprites while menus are up, so the first wave doesn't pop in as circles. */
+function warmSprites(state: RenderState): void {
+  for (const [id, key, r] of WARM_ART) {
+    artColors.main = palette[key];
+    artColors.alt = id === 'biofilm' ? palette.bacteria : palette[key];
+    for (let v = 0; v < 3; v++) preloadArt(id, artColors, r, pxScale, v, lowDetail);
   }
-
-  // Inner bacteria cluster
-  const innerColor = hasShield ? '#ef444480' : '#ef4444';
-  ctx.strokeStyle = innerColor;
-  ctx.fillStyle = hasShield ? '#ef444410' : '#ef444420';
-
-  // Draw several small bacteria shapes inside
-  const clusterCount = 5;
-  for (let i = 0; i < clusterCount; i++) {
-    const angle = (i / clusterCount) * Math.PI * 2;
-    const dist = p.radius * 0.35;
-    const cx = Math.cos(angle) * dist;
-    const cy = Math.sin(angle) * dist;
-    const r = p.radius * 0.25;
-    ctx.beginPath();
-    ctx.arc(cx, cy, r, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.fill();
-  }
-  // Central bacteria
-  ctx.beginPath();
-  ctx.arc(0, 0, p.radius * 0.2, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.fill();
+  const cell = state.cellType ?? 'killer_t';
+  preloadArt(CELL_ART[cell], { main: state.membraneColor ?? '#ffffff', alt: '#4ade80' }, 18, pxScale, 0, lowDetail);
 }
 
 function drawWormSegments(ctx: CanvasRenderingContext2D, p: Pathogen): void {
@@ -696,29 +631,22 @@ function drawWormSegments(ctx: CanvasRenderingContext2D, p: Pathogen): void {
     ctx.restore();
     return;
   }
-  ctx.strokeStyle = '#a855f7';
-  ctx.shadowColor = '#a855f7';
-  ctx.shadowBlur = glow(15);
-  ctx.lineWidth = 2;
-
-  // Draw segments from tail to head
+  // Proglottids from tail to head, each facing the segment in front of it,
+  // rippling with a peristaltic wave that runs down the body
+  artColors.main = palette.parasite;
+  artColors.alt = palette.parasite;
   for (let i = p.segments.length - 1; i >= 1; i--) {
     const seg = p.segments[i];
+    const ahead = p.segments[i - 1];
     const segRadius = p.radius * (0.5 + 0.5 * (1 - i / p.segments.length));
-    ctx.beginPath();
-    ctx.arc(seg.x, seg.y, segRadius, 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(168, 85, 247, ${0.1 + 0.05 * (p.segments.length - i)})`;
-    ctx.fill();
-    ctx.stroke();
+    const wave = lowDetail ? 0 : Math.sin(renderNow * 6 - i * 0.8);
+    ctx.save();
+    ctx.translate(seg.x, seg.y);
+    ctx.rotate(Math.atan2(ahead.y - seg.y, ahead.x - seg.x));
+    ctx.scale(1 + 0.08 * wave, 1 - 0.05 * wave);
+    if (!drawArt(ctx, 'proglottid', 0, artColors, segRadius, pxScale)) drawPlaceholder(ctx, segRadius, palette.parasite);
+    ctx.restore();
   }
-
-  // Connect segments with lines
-  ctx.beginPath();
-  ctx.moveTo(p.segments[0].x, p.segments[0].y);
-  for (let i = 1; i < p.segments.length; i++) {
-    ctx.lineTo(p.segments[i].x, p.segments[i].y);
-  }
-  ctx.stroke();
   ctx.restore();
 }
 
@@ -808,53 +736,23 @@ function drawShip(
     ctx.globalAlpha = 1;
   }
 
-  // Main Body (shape depends on the cell type)
-  ctx.strokeStyle = isLow ? (isCritical ? '#ef4444' : '#fca5a5') : membrane;
+  // Main body: the cell type's artwork, stretched along the direction of travel
   ctx.shadowColor = isLow ? '#ef4444' : membrane;
   ctx.shadowBlur = glow(15);
-  ctx.fillStyle = isLow ? 'rgba(239, 68, 68, 0.08)' : 'rgba(255, 255, 255, 0.1)';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  if (cell === 'macrophage') {
-    // Irregular blob with pseudopods
-    const t = Date.now() * 0.003;
-    for (let i = 0; i <= 14; i++) {
-      const a = (i / 14) * Math.PI * 2;
-      const r = ship.radius * (1 + 0.12 * Math.sin(a * 3 + t) + 0.06 * Math.sin(a * 5 - t));
-      if (i === 0) ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r);
-      else ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
-    }
-  } else if (cell === 'nk_cell') {
-    // Streamlined, slightly elongated
-    ctx.ellipse(0, 0, ship.radius * 1.15, ship.radius * 0.85, 0, 0, Math.PI * 2);
-  } else {
-    ctx.arc(0, 0, ship.radius, 0, Math.PI * 2);
-  }
-  ctx.stroke();
-  ctx.fill();
-
-  if (cell === 'plasma_b') {
-    // Rough endoplasmic reticulum: concentric arcs (antibody factory)
+  {
+    const sp = Math.sqrt(ship.vel.x * ship.vel.x + ship.vel.y * ship.vel.y);
+    const va = Math.atan2(ship.vel.y, ship.vel.x) - ship.rotation;
+    const stretch = Math.min(0.1, sp * 0.025);
     ctx.save();
-    ctx.globalAlpha = 0.5;
-    ctx.lineWidth = 1;
-    for (let r = 0.55; r <= 0.85; r += 0.15) {
-      ctx.beginPath();
-      ctx.arc(0, 0, ship.radius * r, 0.4, Math.PI * 2 - 0.4);
-      ctx.stroke();
-    }
-    ctx.restore();
-  }
-  if (cell === 'nk_cell') {
-    // Cytotoxic granules
-    ctx.save();
-    ctx.fillStyle = membrane;
-    ctx.globalAlpha = 0.6;
-    for (let i = 0; i < 5; i++) {
-      const a = i * 1.25;
-      ctx.beginPath();
-      ctx.arc(Math.cos(a) * ship.radius * 0.6, Math.sin(a) * ship.radius * 0.5, 1.6, 0, Math.PI * 2);
-      ctx.fill();
+    ctx.rotate(va);
+    ctx.scale(1 + stretch, 1 - stretch * 0.6);
+    ctx.rotate(-va);
+    shipColors.main = membrane;
+    anim.seed = 0;
+    anim.speed = sp;
+    anim.level = 0;
+    if (!drawArt(ctx, CELL_ART[cell], 0, shipColors, ship.radius, pxScale)) {
+      drawPlaceholder(ctx, ship.radius, membrane);
     }
     ctx.restore();
   }
@@ -883,24 +781,6 @@ function drawShip(
     ctx.restore();
   }
 
-  // Nucleus
-  ctx.beginPath();
-  ctx.arc(-2, 0, ship.radius * 0.4, 0, Math.PI * 2);
-  ctx.stroke();
-
-  // Receptors (Villi)
-  for (let i = 0; i < 8; i++) {
-    const angle = (i / 8) * Math.PI * 2;
-    const x1 = Math.cos(angle) * ship.radius;
-    const y1 = Math.sin(angle) * ship.radius;
-    const x2 = Math.cos(angle) * (ship.radius + 5);
-    const y2 = Math.sin(angle) * (ship.radius + 5);
-    ctx.beginPath();
-    ctx.moveTo(x1, y1);
-    ctx.lineTo(x2, y2);
-    ctx.stroke();
-  }
-
   // Shield effect
   if (activePowerUps.shield > 0) {
     ctx.strokeStyle = '#a855f7';
@@ -924,14 +804,19 @@ function drawShip(
     ctx.stroke();
   }
 
-  // Thrust flame
+  // Thrusting: ripples of membrane trailing off the uropod
   if (ship.thrusting) {
-    ctx.strokeStyle = '#60a5fa';
-    ctx.beginPath();
-    ctx.moveTo(-ship.radius, -5);
-    ctx.lineTo(-ship.radius - 15, 0);
-    ctx.lineTo(-ship.radius, 5);
-    ctx.stroke();
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = membrane;
+    ctx.lineWidth = 1.5;
+    for (let k = 0; k < 3; k++) {
+      const u = (renderNow * 2.4 + k / 3) % 1;
+      ctx.globalAlpha = (1 - u) * 0.45;
+      ctx.beginPath();
+      ctx.arc(-ship.radius * 0.4, 0, ship.radius * (1 + u * 0.9), Math.PI - 0.45, Math.PI + 0.45);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
   }
 
   ctx.restore();
@@ -999,29 +884,9 @@ function drawBossLinks(ctx: CanvasRenderingContext2D, pathogens: Pathogen[]): vo
   }
 }
 
-/** Red blood cell; the one hiding Plasmodium shows a faint ring-stage pulse. */
-function drawHostCell(ctx: CanvasRenderingContext2D, p: Pathogen, pathogens: Pathogen[]): void {
-  const color = palette.host_rbc;
+/** Overlays on a host red blood cell: the one hiding Plasmodium shows a faint ring-stage pulse. */
+function drawHostCellOverlay(ctx: CanvasRenderingContext2D, p: Pathogen, pathogens: Pathogen[]): void {
   ctx.shadowBlur = 0;
-  ctx.fillStyle = color;
-  ctx.globalAlpha = 0.55;
-  ctx.beginPath();
-  ctx.ellipse(0, 0, p.radius, p.radius * 0.85, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.globalAlpha = 0.9;
-  ctx.fillStyle = '#450a0a';
-  ctx.beginPath();
-  ctx.ellipse(0, 0, p.radius * 0.45, p.radius * 0.38, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.globalAlpha = 1;
-  if (p.hitFlash && p.hitFlash > 0) {
-    ctx.globalAlpha = p.hitFlash / 8;
-    ctx.fillStyle = '#ffffff';
-    ctx.beginPath();
-    ctx.ellipse(0, 0, p.radius, p.radius * 0.85, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.globalAlpha = 1;
-  }
   // Is this the infected one?
   const owner = pathogens.find(q => q.id === p.ownerId);
   if (owner?.boss && owner.boss.data.hostId === p.id && owner.hidden) {
@@ -1053,128 +918,6 @@ function drawHostCell(ctx: CanvasRenderingContext2D, p: Pathogen, pathogens: Pat
     }
     ctx.globalAlpha = 1;
   }
-}
-
-/** Hijacked / autoimmune T-cell: a red-tinted copy of the player. */
-function drawRogueTCell(ctx: CanvasRenderingContext2D, p: Pathogen, color: string): void {
-  ctx.beginPath();
-  ctx.arc(0, 0, p.radius, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.fill();
-  ctx.beginPath();
-  ctx.arc(-2, 0, p.radius * 0.4, 0, Math.PI * 2);
-  ctx.stroke();
-  for (let i = 0; i < 8; i++) {
-    const a = (i / 8) * Math.PI * 2;
-    ctx.beginPath();
-    ctx.moveTo(Math.cos(a) * p.radius, Math.sin(a) * p.radius);
-    ctx.lineTo(Math.cos(a) * (p.radius + (p.isBoss ? 8 : 5)), Math.sin(a) * (p.radius + (p.isBoss ? 8 : 5)));
-    ctx.stroke();
-  }
-  if (p.isBoss) {
-    // Angry nucleus
-    ctx.fillStyle = color;
-    ctx.globalAlpha = 0.4 + 0.2 * Math.sin(Date.now() * 0.01);
-    ctx.beginPath();
-    ctx.arc(-2, 0, p.radius * 0.4, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.globalAlpha = 1;
-  }
-}
-
-function drawVessel(ctx: CanvasRenderingContext2D, p: Pathogen, color: string): void {
-  ctx.fillStyle = `${color}55`;
-  ctx.beginPath();
-  ctx.arc(0, 0, p.radius, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.stroke();
-  // Pulsing lumen
-  const pulse = 0.5 + 0.2 * Math.sin(Date.now() * 0.008 + p.id);
-  ctx.beginPath();
-  ctx.arc(0, 0, p.radius * pulse, 0, Math.PI * 2);
-  ctx.stroke();
-}
-
-/** Helminth head: rounded scolex with hooks facing the direction of travel. */
-function drawWormHead(ctx: CanvasRenderingContext2D, p: Pathogen): void {
-  ctx.rotate(Math.atan2(p.vel.y, p.vel.x) - p.rotation);
-  ctx.beginPath();
-  ctx.ellipse(0, 0, p.radius * 1.15, p.radius, 0, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.fill();
-  // Hooks
-  ctx.lineWidth = 2;
-  for (let i = -2; i <= 2; i++) {
-    const a = i * 0.35;
-    const x = Math.cos(a) * p.radius * 1.1;
-    const y = Math.sin(a) * p.radius;
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-    ctx.quadraticCurveTo(x + 9, y, x + 7, y + (i >= 0 ? 6 : -6));
-    ctx.stroke();
-  }
-  // Suckers
-  ctx.beginPath();
-  ctx.arc(p.radius * 0.3, -p.radius * 0.4, 4, 0, Math.PI * 2);
-  ctx.moveTo(p.radius * 0.3 + 4, p.radius * 0.4);
-  ctx.arc(p.radius * 0.3, p.radius * 0.4, 4, 0, Math.PI * 2);
-  ctx.stroke();
-}
-
-function drawPlasmodium(ctx: CanvasRenderingContext2D, p: Pathogen): void {
-  // Amoeboid trophozoite with merozoite nuclei inside
-  const t = Date.now() * 0.004;
-  ctx.beginPath();
-  for (let i = 0; i <= 18; i++) {
-    const a = (i / 18) * Math.PI * 2;
-    const r = p.radius * (1 + 0.15 * Math.sin(a * 4 + t));
-    if (i === 0) ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r);
-    else ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
-  }
-  ctx.closePath();
-  ctx.stroke();
-  ctx.fill();
-  ctx.fillStyle = '#e9d5ff';
-  for (let i = 0; i < 7; i++) {
-    const a = i * 0.9;
-    ctx.beginPath();
-    ctx.arc(Math.cos(a) * p.radius * 0.5, Math.sin(a) * p.radius * 0.5, 2.5, 0, Math.PI * 2);
-    ctx.fill();
-  }
-}
-
-/** Enveloped virus with surface spike proteins (retrovirus, influenza). */
-function drawSpikedVirus(ctx: CanvasRenderingContext2D, p: Pathogen, spikeColor: string, spikes: number): void {
-  ctx.beginPath();
-  ctx.arc(0, 0, p.radius, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.fill();
-  ctx.save();
-  ctx.strokeStyle = spikeColor;
-  ctx.fillStyle = spikeColor;
-  ctx.lineWidth = 2;
-  for (let i = 0; i < spikes; i++) {
-    const a = (i / spikes) * Math.PI * 2;
-    const x1 = Math.cos(a) * p.radius, y1 = Math.sin(a) * p.radius;
-    const x2 = Math.cos(a) * (p.radius + 10), y2 = Math.sin(a) * (p.radius + 10);
-    ctx.beginPath();
-    ctx.moveTo(x1, y1);
-    ctx.lineTo(x2, y2);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.arc(x2, y2, i % 2 === 0 ? 3 : 2, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  ctx.restore();
-  // Genome
-  ctx.beginPath();
-  for (let i = 0; i < 24; i++) {
-    const a = (i / 24) * Math.PI * 4;
-    const r = p.radius * 0.45 * (i / 24);
-    if (i === 0) ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r);
-    else ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
-  }
-  ctx.stroke();
 }
 
 function drawProjectiles(ctx: CanvasRenderingContext2D, projectiles: EnemyProjectile[]): void {

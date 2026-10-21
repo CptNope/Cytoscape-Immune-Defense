@@ -9,8 +9,9 @@ import { ArrowLeft, Lock, Check } from 'lucide-react';
 import {
   type PlayerProfile,
   CELL_TYPES, ANTIBODY_CLASSES, CYTOKINE_DEFS, CYTOKINE_SLOTS, MEMBRANE_COSMETICS,
-  activeCytokines, setCellType, toggleCytokine, buyCosmetic, equipCosmetic,
+  activeCytokines, setCellType, toggleCytokine, buyCosmetic, equipCosmetic, cellArtUrl,
 } from '../engine';
+import OrganismArt from './OrganismArt';
 
 interface Props {
   profile: PlayerProfile;
@@ -30,6 +31,7 @@ const Section = ({ title, hint, children }: { title: string; hint?: string; chil
 
 export default function LoadoutPanel({ profile, onProfileChange, onBack }: Props) {
   const equipped = activeCytokines(profile);
+  const membrane = MEMBRANE_COSMETICS.find(c => c.id === profile.cosmetics?.equipped)?.color ?? '#ffffff';
   const apply = (p: PlayerProfile | null) => { if (p) onProfileChange(p); };
 
   return (
@@ -50,7 +52,7 @@ export default function LoadoutPanel({ profile, onProfileChange, onBack }: Props
 
         <Section title="Cell type" hint="Each cell plays differently and has its own active ability (E / ✦).">
           <div className="grid gap-2 sm:grid-cols-2">
-            {CELL_TYPES.map(cell => {
+            {CELL_TYPES.map((cell, i) => {
               const unlocked = profile.playerLevel >= cell.unlockPlayerLevel;
               const selected = profile.cellType === cell.id;
               return (
@@ -62,8 +64,9 @@ export default function LoadoutPanel({ profile, onProfileChange, onBack }: Props
                     selected ? 'bg-white/10 border-emerald-400/60' : unlocked ? 'bg-white/5 border-white/10 hover:border-white/30' : 'bg-white/[0.02] border-white/5 opacity-50'
                   }`}
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-sm" style={{ color: unlocked ? cell.color : undefined }}>{cell.name}</span>
+                  <div className="flex items-center gap-2">
+                    <OrganismArt src={cellArtUrl(cell.id, membrane)} size={44} delay={i * 0.06} />
+                    <span className="flex-1 font-bold text-sm" style={{ color: unlocked ? cell.color : undefined }}>{cell.name}</span>
                     {selected ? <Check className="w-4 h-4 text-emerald-400" /> : !unlocked && (
                       <span className="flex items-center gap-1 text-[10px] text-white/40"><Lock className="w-3 h-3" />Lv.{cell.unlockPlayerLevel}</span>
                     )}

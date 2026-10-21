@@ -29,3 +29,4 @@ export * from './combat';
 export * from './hazards';
 export * from './bosses';
 export * from './codex';
+export { codexArtUrl, cellArtUrl } from './art';
