@@ -92,6 +92,10 @@ export interface Pathogen extends Entity {
   resistClass?: AntibodyClass;
   /** Cached display label, e.g. "Bacteria (armored)". */
   label?: string;
+  /** Adapted to the current threat level (set on its first update). */
+  adapted?: boolean;
+  /** Health multiplier it was adapted with (cancer keeps it while growing). */
+  hpScale?: number;
 }
 
 export type AntibodyClass = 'IgG' | 'IgM' | 'IgA' | 'IgE';

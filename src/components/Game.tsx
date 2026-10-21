@@ -14,7 +14,7 @@ import {
   type EnemyProjectile, type Hazard, type LysisEffect, type PlayerStatus,
   type GameContext, type MutationId, type RunMutations, type MutationEffects,
   FRICTION, SHIP_TURN_SPEED,
-  PATHOGEN_MIN_RADIUS, PATHOGEN_MAX_RADIUS, INITIAL_PATHOGEN_COUNT, MAX_PARTICLES,
+  PATHOGEN_MIN_RADIUS, PATHOGEN_MAX_RADIUS, INITIAL_PATHOGEN_COUNT,
   POWERUP_DROP_RATE, POWERUP_LIFETIME,
   AUTO_TARGET_STRENGTH, REGEN_INTERVAL, REGEN_AMOUNT,
   CHAIN_REACTION_RADIUS, CHAIN_REACTION_DAMAGE,
@@ -38,6 +38,8 @@ import {
   updateProjectiles, updateHazards, updateLysis,
   getCellType, getAntibodyClass, unlockedAntibodyClasses, nextAntibodyClass, buildVolley,
   memoryTable, rollDraft, applyMutation, mutationEffects, getMutation,
+  entityCaps, LoadGovernor, roomUnder, playerPower, threatFor, threatLabel, NO_THREAT,
+  type EntityCaps, type Threat,
 } from '../engine';
 import AudioControls from './AudioControls';
 import UpgradeScreen from './UpgradeScreen';
@@ -52,7 +54,15 @@ import Tutorial from './Tutorial';
 
 const STEP_MS = 1000 / 60;
 const MAX_STEPS_PER_FRAME = 4;
-const LOW_QUALITY_MAX_PARTICLES = 90;
+/** Steps between reinforcements streaming in (a third of a second). */
+const REINFORCE_INTERVAL = 20;
+/** Most pathogens a single kill's chain reaction can hit. */
+const CHAIN_MAX_TARGETS = 8;
+/** Most Complement Cascade bursts per simulation step. */
+const COMPLEMENT_BURSTS_PER_STEP = 4;
+
+/** A pathogen waiting to join the wave once there's room on screen. */
+type Reinforcement = { kind: 'random' } | { kind: 'typed'; type: PathogenType; variant?: Pathogen['variant'] };
 /** Short side of the play area in world units; smaller screens zoom out to fit it. */
 const WORLD_MIN_DIM = 640;
 /** Never zoom out further than this (keeps entities readable on tiny phones). */
@@ -137,6 +147,17 @@ export default function Game() {
   const [quality, setQuality] = useState<RenderQuality>(detectInitialQuality);
   const qualityRef = useRef<RenderQuality>(quality);
   const perfRef = useRef({ frames: 0, time: 0, badWindows: 0 });
+  // Entity budget: limits scale with quality and shrink if the device struggles
+  const governorRef = useRef(new LoadGovernor());
+  const capsRef = useRef<EntityCaps>(entityCaps(quality));
+  const refreshCaps = () => { capsRef.current = entityCaps(qualityRef.current, governorRef.current.scale); };
+  const reinforcementsRef = useRef<Reinforcement[]>([]);
+  const reinforceTRef = useRef(0);
+  const chainDepthRef = useRef(0);
+  const complementBudgetRef = useRef(0);
+  // Adaptive difficulty: pathogens evolve to match the player's power
+  const threatRef = useRef<Threat>(NO_THREAT);
+  const [threatText, setThreatText] = useState('');
 
   // Settings
   const [colorblind, setColorblind] = useState(() => readFlag(COLORBLIND_KEY));
@@ -227,6 +248,89 @@ export default function Game() {
 
   const maxHealth = () => modifiersRef.current.maxHealth + mutFxRef.current.bonusMaxHealth;
 
+  /** Re-estimates the player's power and how hard pathogens push back. Returns the previous threat. */
+  const updateThreat = (): Threat => {
+    const prev = threatRef.current;
+    const mods = modifiersRef.current;
+    const fx = mutFxRef.current;
+    const mem = Object.values(memoryRef.current);
+    const power = playerPower({
+      bulletDamage: mods.bulletDamage,
+      shotDelay: mods.shotDelay,
+      memoryAvg: mem.length ? mem.reduce((a, b) => a + b, 0) / mem.length : 1,
+      damageMult: fx.damageMult,
+      fireDelayMult: fx.fireDelayMult,
+      sideShotStacks: fx.sideShotStacks,
+      extraPierce: fx.extraPierce,
+      drones: fx.drones,
+      complement: fx.complement,
+      opsonization: fx.opsonization,
+      chainReaction: mods.hasChainReaction,
+      autoTarget: mods.hasAutoTarget,
+    });
+    const t = threatFor(power, levelRef.current, gameModeRef.current, maxHealth());
+    threatRef.current = t;
+    setThreatText(gameModeRef.current === 'zen' || t.health < 1.1 ? '' : threatLabel(t));
+    return prev;
+  };
+
+  /** Tells the player when pathogens have noticeably adapted since the last wave. */
+  const announceThreat = (prev: Threat) => {
+    const t = threatRef.current;
+    if (t.health - prev.health >= 0.25) {
+      spawnFloatingText({ x: shipRef.current.pos.x, y: shipRef.current.pos.y - 48 }, `PATHOGENS ADAPTED ${threatLabel(t)}`, '#f472b6', 13);
+    }
+  };
+
+  /** Applies the current threat to a newly spawned pathogen, once. */
+  const adaptPathogen = (p: Pathogen) => {
+    p.adapted = true;
+    if (p.isBoss || p.isBossPart || p.harmless) return;
+    const t = threatRef.current;
+    // Prions are swarm fodder: they toughen up much more slowly
+    const h = p.type === 'prion' ? Math.sqrt(t.health) : t.health;
+    p.health *= h;
+    p.maxHealth *= h;
+    p.hpScale = h;
+    if (p.shieldHealth !== undefined) {
+      p.shieldHealth *= h;
+      p.maxShieldHealth = (p.maxShieldHealth ?? p.shieldHealth) * h;
+    }
+    p.vel.x *= t.speed;
+    p.vel.y *= t.speed;
+  };
+
+  /** Pathogens a reinforcement adds to the screen. */
+  const reinforcementSize = (r: Reinforcement) => (r.kind === 'typed' && r.type === 'prion' ? PRION_SWARM_SIZE : 1);
+
+  const spawnReinforcement = (r: Reinforcement) => {
+    if (r.kind === 'random') spawnPathogen(true);
+    else spawnTypedPathogen(r.type, r.variant);
+  };
+
+  /** Spawns now if there's room on screen, otherwise queues it to stream in later. */
+  const queueOrSpawn = (r: Reinforcement) => {
+    const room = roomUnder(pathogensRef.current.length, capsRef.current.pathogens);
+    if (room >= reinforcementSize(r) && reinforcementsRef.current.length === 0) spawnReinforcement(r);
+    else reinforcementsRef.current.push(r);
+  };
+
+  /** Adds a player antibody; at the limit the oldest one fizzles out to make room. */
+  const addAntibody = (a: Antibody) => {
+    const list = antibodiesRef.current;
+    if (list.length >= capsRef.current.antibodies) {
+      // Mark rather than remove: this can run while the list is being compacted
+      for (let i = 0; i < list.length; i++) {
+        if (list[i].life > 0) { list[i].life = 0; break; }
+      }
+    }
+    list.push(a);
+  };
+  /** Bonus antibodies (drones, complement) are simply skipped at the limit. */
+  const addBonusAntibody = (a: Antibody) => {
+    if (antibodiesRef.current.length < capsRef.current.antibodies) antibodiesRef.current.push(a);
+  };
+
   // --- Score / health helpers ---
 
   const addScore = (n: number) => {
@@ -288,6 +392,10 @@ export default function Game() {
     feverTRef.current = FEVER_INTERVAL;
     dronesRef.current = [];
     activePowerUpsRef.current = { rapidFire: 0, shield: 0, damageBoost: 0 };
+    reinforcementsRef.current = [];
+    reinforceTRef.current = 0;
+    governorRef.current.reset();
+    refreshCaps();
 
     runMutationsRef.current = {};
     setRunMutations({});
@@ -329,17 +437,18 @@ export default function Game() {
     setRunSummary({ bosses: 0, stars: [] });
     setCampaignWon(false);
 
-    // Mode-specific initial spawning
+    // Mode-specific initial spawning, with pathogens matched to the player's power
     const mode = gameModeRef.current;
+    updateThreat();
     if (mode === 'campaign' && campaignLevelRef.current) {
       spawnCampaignWave(campaignLevelRef.current);
     } else if (mode === 'time_attack') {
       timeAttackRef.current = TIME_ATTACK_INITIAL_SECONDS * 60;
       timeAttackSecsRef.current = TIME_ATTACK_INITIAL_SECONDS;
       setTimeAttackTimer(TIME_ATTACK_INITIAL_SECONDS);
-      for (let i = 0; i < INITIAL_PATHOGEN_COUNT + 2; i++) spawnPathogen(true);
+      for (let i = 0; i < INITIAL_PATHOGEN_COUNT + 2; i++) queueOrSpawn({ kind: 'random' });
     } else {
-      for (let i = 0; i < INITIAL_PATHOGEN_COUNT; i++) spawnPathogen(true);
+      for (let i = 0; i < INITIAL_PATHOGEN_COUNT; i++) queueOrSpawn({ kind: 'random' });
     }
   };
 
@@ -495,9 +604,9 @@ export default function Game() {
     for (const entry of campaignLevel.pathogens) {
       if (entry.type === 'prion') {
         const swarms = Math.max(1, Math.floor(entry.count / PRION_SWARM_SIZE));
-        for (let i = 0; i < swarms; i++) spawnPrionSwarm();
+        for (let i = 0; i < swarms; i++) queueOrSpawn({ kind: 'typed', type: 'prion' });
       } else {
-        for (let i = 0; i < entry.count; i++) spawnTypedPathogen(entry.type, entry.variant);
+        for (let i = 0; i < entry.count; i++) queueOrSpawn({ kind: 'typed', type: entry.type, variant: entry.variant });
       }
     }
     if (campaignLevel.boss) spawnBossOfType(campaignLevel.boss, 0);
@@ -507,7 +616,7 @@ export default function Game() {
 
   // --- Effects ---
 
-  const particleCap = () => (qualityRef.current === 'low' ? LOW_QUALITY_MAX_PARTICLES : MAX_PARTICLES);
+  const particleCap = () => capsRef.current.particles;
 
   const createExplosion = (pos: Vector, color: string, count = 10) => {
     const cap = particleCap();
@@ -568,8 +677,17 @@ export default function Game() {
     get unlockedClasses() { return unlockedClassesRef.current; },
     nextId: () => nextIdRef.current++,
     addPathogen: (p) => { pathogensRef.current.push(p); return p; },
-    fire: (p) => { projectilesRef.current.push({ ...p, id: nextIdRef.current++, rotation: 0 }); },
-    addHazard: (h) => { hazardsRef.current.push({ ...h, id: nextIdRef.current++ }); },
+    fire: (p) => {
+      // At the limit new shots are dropped; the screen is already full of them
+      if (projectilesRef.current.length >= capsRef.current.projectiles) return;
+      projectilesRef.current.push({ ...p, id: nextIdRef.current++, rotation: 0 });
+    },
+    addHazard: (h) => {
+      // Telegraphs always show (they warn of an attack); lingering clouds are capped
+      const isTelegraph = h.kind === 'telegraph_circle' || h.kind === 'telegraph_line';
+      if (!isTelegraph && hazardsRef.current.length >= capsRef.current.hazards) return;
+      hazardsRef.current.push({ ...h, id: nextIdRef.current++ });
+    },
     text: (pos, text, color, size) => spawnFloatingText(pos, text, color, size),
     explosion: (pos, color, count) => createExplosion(pos, color, count),
     lysis: (pos, color, r) => addLysis(pos, color, r),
@@ -589,7 +707,7 @@ export default function Game() {
     const cy = worldRef.current.h / 2;
     const a = Math.atan2(cy - ship.pos.y, cx - ship.pos.x);
     const pos = { x: cx + Math.cos(a) * 150, y: cy + Math.sin(a) * 150 };
-    const scale = bossHealthScale(cycle, modifiersRef.current.bulletDamage);
+    const scale = bossHealthScale(cycle, threatRef.current.power);
     const boss = spawnBoss(gameCtx, type, pos, scale);
     const def = BOSS_DEFS[type];
     setBossUi({
@@ -612,6 +730,7 @@ export default function Game() {
     if (gameStateRef.current !== 'playing' || gameModeRef.current === 'zen') return false;
     const ship = shipRef.current;
     const status = statusRef.current;
+    amount *= threatRef.current.damage;
 
     if (source === 'dot') {
       dotAccRef.current += amount;
@@ -696,23 +815,31 @@ export default function Game() {
     runKillsRef.current++;
     runKillsByTypeRef.current[p.type] = (runKillsByTypeRef.current[p.type] || 0) + 1;
 
-    // Chain reaction cytokine
-    if (modifiersRef.current.hasChainReaction) {
-      for (const nearby of pathogensRef.current) {
+    // Chain reaction cytokine. Limited in depth and targets so one kill
+    // can't cascade through the whole screen in a single step.
+    if (modifiersRef.current.hasChainReaction && chainDepthRef.current < 2) {
+      chainDepthRef.current++;
+      let hits = 0;
+      const list = pathogensRef.current;
+      for (let i = 0; i < list.length && hits < CHAIN_MAX_TARGETS; i++) {
+        const nearby = list[i];
         if (!nearby.dead && !nearby.hidden && !nearby.harmless && nearby.id !== p.id &&
             distance(p.pos, nearby.pos) < CHAIN_REACTION_RADIUS) {
+          hits++;
           indirectDamage(nearby, CHAIN_REACTION_DAMAGE);
           createExplosion(nearby.pos, '#fbbf24', 3);
         }
       }
+      chainDepthRef.current--;
     }
 
     // Complement cascade: the membrane attack complex bursts into fragments
-    if (mutFxRef.current.complement && !p.isBossPart) {
+    if (mutFxRef.current.complement && !p.isBossPart && complementBudgetRef.current > 0) {
+      complementBudgetRef.current--;
       const dmg = modifiersRef.current.bulletDamage * mutFxRef.current.damageMult * 0.4;
       for (let i = 0; i < 6; i++) {
         const a = (i / 6) * Math.PI * 2;
-        antibodiesRef.current.push({
+        addBonusAntibody({
           id: nextIdRef.current++, pos: { ...p.pos },
           vel: { x: Math.cos(a) * 6, y: Math.sin(a) * 6 }, radius: 3, rotation: a,
           life: 22, cls: 'IgG', damage: dmg, pierce: 0, baseSpeed: 6,
@@ -726,8 +853,10 @@ export default function Game() {
     const splittable = !p.isBoss && !p.isBossPart && p.ownerId === undefined &&
       (p.type === 'virus' || p.type === 'bacteria' || p.type === 'parasite' || p.type === 'fungus');
     if (splittable && !opts.noSplit) {
-      spawnPathogen(false, p);
-      spawnPathogen(false, p);
+      // At the on-screen limit a pathogen splits into fewer pieces
+      const room = roomUnder(pathogensRef.current.length, capsRef.current.pathogens);
+      if (room > 0) spawnPathogen(false, p);
+      if (room > 1) spawnPathogen(false, p);
     }
   };
 
@@ -791,7 +920,7 @@ export default function Game() {
     });
     const homing = getCellType(modifiersRef.current.cellType).homing;
     for (const s of shots) {
-      antibodiesRef.current.push({
+      addAntibody({
         id: nextIdRef.current++, pos: s.pos, vel: s.vel, radius: 3, rotation: s.rotation,
         life: s.life, cls: cls.id, damage: s.damage, pierce: s.pierce, baseSpeed: s.baseSpeed,
         homing: homing || undefined,
@@ -897,6 +1026,7 @@ export default function Game() {
       campaignLevelRef.current = cl;
       levelRef.current = cl.level;
       setLevel(cl.level);
+      announceThreat(updateThreat());
       spawnCampaignWave(cl);
       spawnFloatingText(shipRef.current.pos, cl.title, '#60a5fa', 22);
       return;
@@ -905,7 +1035,7 @@ export default function Game() {
     if (mode === 'zen') {
       levelRef.current += 1;
       setLevel(levelRef.current);
-      for (let i = 0; i < INITIAL_PATHOGEN_COUNT; i++) spawnPathogen(true);
+      for (let i = 0; i < INITIAL_PATHOGEN_COUNT; i++) queueOrSpawn({ kind: 'random' });
       return;
     }
 
@@ -914,17 +1044,18 @@ export default function Game() {
     const nextLevel = prevLevel + 1;
     levelRef.current = nextLevel;
     setLevel(nextLevel);
+    announceThreat(updateThreat());
     audioRef.current.playLevelClear();
 
     const boss = endlessBossFor(nextLevel, BOSS_INTERVAL);
     if (boss) {
       spawnBossOfType(boss.type, boss.cycle);
-      for (let i = 0; i < Math.floor(INITIAL_PATHOGEN_COUNT / 2); i++) spawnPathogen(true);
+      for (let i = 0; i < Math.floor(INITIAL_PATHOGEN_COUNT / 2); i++) queueOrSpawn({ kind: 'random' });
     } else {
-      for (let i = 0; i < INITIAL_PATHOGEN_COUNT + prevLevel; i++) spawnPathogen(true);
-      if (nextLevel >= PRION_MIN_LEVEL && Math.random() < 0.3 + nextLevel * 0.02) spawnPrionSwarm();
-      if (nextLevel >= CANCER_MIN_LEVEL && Math.random() < 0.2 + nextLevel * 0.02) spawnCancerCell();
-      if (nextLevel >= BIOFILM_MIN_LEVEL && Math.random() < 0.15 + nextLevel * 0.02) spawnBiofilm();
+      for (let i = 0; i < INITIAL_PATHOGEN_COUNT + prevLevel; i++) queueOrSpawn({ kind: 'random' });
+      if (nextLevel >= PRION_MIN_LEVEL && Math.random() < 0.3 + nextLevel * 0.02) queueOrSpawn({ kind: 'typed', type: 'prion' });
+      if (nextLevel >= CANCER_MIN_LEVEL && Math.random() < 0.2 + nextLevel * 0.02) queueOrSpawn({ kind: 'typed', type: 'cancer' });
+      if (nextLevel >= BIOFILM_MIN_LEVEL && Math.random() < 0.15 + nextLevel * 0.02) queueOrSpawn({ kind: 'typed', type: 'biofilm' });
     }
   };
 
@@ -968,6 +1099,17 @@ export default function Game() {
 
     gameTimeRef.current += STEP_MS;
     const now = gameTimeRef.current;
+
+    complementBudgetRef.current = COMPLEMENT_BURSTS_PER_STEP;
+
+    // Reinforcements stream in as room frees up on screen
+    const queue = reinforcementsRef.current;
+    if (queue.length > 0 && --reinforceTRef.current <= 0) {
+      reinforceTRef.current = REINFORCE_INTERVAL;
+      if (roomUnder(pathogensRef.current.length, capsRef.current.pathogens) >= reinforcementSize(queue[0])) {
+        spawnReinforcement(queue.shift()!);
+      }
+    }
 
     // Timers
     if (status.iframes > 0) status.iframes--;
@@ -1062,7 +1204,7 @@ export default function Game() {
         const target = nearestTarget(d.pos, 360);
         if (target) {
           const ta = angleToTarget(d.pos, target.pos);
-          antibodiesRef.current.push({
+          addBonusAntibody({
             id: nextIdRef.current++, pos: { ...d.pos }, vel: { x: Math.cos(ta) * 7, y: Math.sin(ta) * 7 },
             radius: 3, rotation: ta, life: 55, cls: 'IgG',
             damage: mods.bulletDamage * fx.damageMult * 0.5, pierce: 0, baseSpeed: 7,
@@ -1088,6 +1230,7 @@ export default function Game() {
     for (let i = 0, n = pathogens.length; i < n; i++) {
       const p = pathogens[i];
       if (p.dead) continue;
+      if (!p.adapted) adaptPathogen(p);
       if (p.hitFlash && p.hitFlash > 0) p.hitFlash--;
       if (p.labelCd && p.labelCd > 0) p.labelCd--;
       if (p.marked && p.marked > 0) p.marked--;
@@ -1102,7 +1245,7 @@ export default function Game() {
           const accel = p.variant === 'stalker' ? 0.12 : 0.05;
           p.vel.x += Math.cos(angle) * accel;
           p.vel.y += Math.sin(angle) * accel;
-          clampSpeed(p.vel, (3 + levelRef.current * 0.2) * (p.variant === 'stalker' ? 1.4 : 1));
+          clampSpeed(p.vel, (3 + levelRef.current * 0.2) * (p.variant === 'stalker' ? 1.4 : 1) * threatRef.current.speed);
         }
         if (p.type === 'prion') p.opacity = PRION_OPACITY + Math.sin(now * 0.01 + p.id) * 0.15;
         if (p.type === 'cancer') {
@@ -1111,12 +1254,12 @@ export default function Game() {
           if (p.growthRate && p.radius < CANCER_MAX_RADIUS) {
             p.radius += p.growthRate;
             p.health = Math.max(p.health, p.radius * CANCER_HEALTH_PER_RADIUS * (p.health / Math.max(0.01, p.maxHealth)));
-            p.maxHealth = p.radius * CANCER_HEALTH_PER_RADIUS;
+            p.maxHealth = p.radius * CANCER_HEALTH_PER_RADIUS * (p.hpScale ?? 1);
           }
           if (p.spawnTimer !== undefined && --p.spawnTimer <= 0) {
             p.spawnTimer = CANCER_SPAWN_INTERVAL;
             const cancers = pathogens.filter(q => q.type === 'cancer' && !q.dead).length;
-            if (cancers < 10) {
+            if (cancers < 10 && roomUnder(pathogens.length, capsRef.current.pathogens) > 0) {
               const a = Math.random() * Math.PI * 2;
               const d = p.radius + 20;
               const hp = CANCER_INITIAL_RADIUS * CANCER_HEALTH_PER_RADIUS * 0.5;
@@ -1374,7 +1517,8 @@ export default function Game() {
     });
 
     // 8. Wave cleared?
-    if (pathogensRef.current.length === 0 && gameStateRef.current === 'playing' && !draftOpenRef.current) {
+    if (pathogensRef.current.length === 0 && reinforcementsRef.current.length === 0 &&
+        gameStateRef.current === 'playing' && !draftOpenRef.current) {
       onWaveCleared();
     }
 
@@ -1484,6 +1628,41 @@ export default function Game() {
   const frameFnsRef = useRef({ update, draw });
   frameFnsRef.current = { update, draw };
 
+  // Development-only hook for stress tests (stripped from production builds)
+  if (import.meta.env.DEV && typeof window !== 'undefined') {
+    (window as unknown as { __cytoDebug?: unknown }).__cytoDebug = {
+      counts: () => ({
+        pathogens: pathogensRef.current.length,
+        antibodies: antibodiesRef.current.length,
+        projectiles: projectilesRef.current.length,
+        hazards: hazardsRef.current.length,
+        particles: particlesRef.current.length,
+        queued: reinforcementsRef.current.length,
+        level: levelRef.current,
+        caps: capsRef.current,
+        loadScale: governorRef.current.scale,
+        frameMs: governorRef.current.averageMs,
+        threat: threatRef.current,
+        health: healthRef.current,
+      }),
+      jumpToWave: (n: number) => {
+        pathogensRef.current = [];
+        reinforcementsRef.current = [];
+        levelRef.current = n - 1;
+        advanceWave();
+      },
+      mutate: (ids: MutationId[]) => {
+        let run = runMutationsRef.current;
+        for (const id of ids) run = applyMutation(run, id);
+        runMutationsRef.current = run;
+        setRunMutations(run);
+        mutFxRef.current = mutationEffects(run);
+        updateThreat();
+      },
+      godMode: () => { healthRef.current = 1e9; },
+    };
+  }
+
   // --- Effects ---
 
   useEffect(() => { gameStateRef.current = gameState; }, [gameState]);
@@ -1507,6 +1686,7 @@ export default function Game() {
 
   useEffect(() => {
     qualityRef.current = quality;
+    refreshCaps();
     applyCanvasSize();
   }, [quality]);
 
@@ -1578,6 +1758,7 @@ export default function Game() {
         alphaRef.current = acc / STEP_MS;
         if (steps > 0 || qualityRef.current === 'high') frameFnsRef.current.draw();
         monitorPerformance(dt);
+        if (governorRef.current.sample(dt)) refreshCaps();
       } else {
         acc = 0;
         if (now - lastIdleDraw > 33) {
@@ -1613,6 +1794,7 @@ export default function Game() {
     perf.badWindows = avg > 22 ? perf.badWindows + 1 : 0;
     if (perf.badWindows >= 2) {
       qualityRef.current = 'low';
+      refreshCaps();
       setQuality('low');
       try { localStorage.setItem(QUALITY_KEY, 'low'); } catch {}
     }
@@ -1801,6 +1983,16 @@ export default function Game() {
                 </span>
                 <div className="font-mono text-lg sm:text-2xl font-bold text-center">{level}</div>
               </div>
+
+              {threatText && (
+                <div
+                  title="Pathogens adapt to your strength: their health is multiplied by this"
+                  className="bg-black/60 border border-pink-500/30 px-2 py-0.5 sm:px-3 sm:py-1 rounded-lg text-center"
+                >
+                  <span className="text-[8px] sm:text-[10px] uppercase tracking-widest text-pink-300/70 font-semibold block">Resistance</span>
+                  <span className="font-mono text-xs sm:text-sm font-bold text-pink-300">{threatText}</span>
+                </div>
+              )}
 
               {gameMode === 'time_attack' && (
                 <div className={`bg-black/60 border px-2 py-1 sm:px-4 sm:py-2 rounded-lg sm:rounded-xl ${

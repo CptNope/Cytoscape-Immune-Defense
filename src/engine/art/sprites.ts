@@ -104,8 +104,6 @@ export const anim: AnimCtx = { t: 0, seed: 0, speed: 0, low: false, level: 0 };
 export interface DrawArtOptions {
   /** Draw only the static body (no animated parts). */
   bodyOnly?: boolean;
-  /** Brightening flash (0..1), added on top of the body. */
-  flash?: number;
 }
 
 /**
@@ -149,15 +147,6 @@ export function drawArt(
     org.back(painter, c, anim, variant);
   }
   ctx.drawImage(img, -e, -e, 2 * e, 2 * e);
-  if (opts?.flash && opts.flash > 0) {
-    const op = ctx.globalCompositeOperation;
-    const ga = ctx.globalAlpha;
-    ctx.globalCompositeOperation = 'lighter';
-    ctx.globalAlpha = ga * Math.min(1, opts.flash);
-    ctx.drawImage(img, -e, -e, 2 * e, 2 * e);
-    ctx.globalCompositeOperation = op;
-    ctx.globalAlpha = ga;
-  }
   if (live && org.front) {
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
