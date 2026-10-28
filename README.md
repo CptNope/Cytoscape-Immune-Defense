@@ -232,3 +232,7 @@ The app auto-deploys to GitHub Pages via GitHub Actions on every push to `main`.
 ## License
 
 This project is licensed under the [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0).
+
+---
+
+Built by [Jeremy Anderson Tech](https://jeremyanderson.tech/), a web development and security practice in Shrewsbury, MA. Read more on the [project page](https://jeremyanderson.tech/project/cytoscape-immune-defense/). [Services](https://jeremyanderson.tech/services/)
