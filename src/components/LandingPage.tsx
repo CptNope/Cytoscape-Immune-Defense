@@ -21,6 +21,7 @@ const EASE = [0.22, 1, 0.36, 1] as const;
 const SPRING = { type: 'spring', stiffness: 300, damping: 20 } as const;
 
 const REPO = 'https://github.com/CptNope/Cytoscape-Immune-Defense';
+const WEB_APP = 'https://cptnope.github.io/Cytoscape-Immune-Defense/';
 const TITLE = 'CYTOSCAPE';
 
 const container: Variants = {
@@ -203,7 +204,7 @@ export default function LandingPage({ onPlay }: Props) {
               transition={{ duration: 0.8, delay: 1.1 }}
               className="mt-6 font-mono text-xs text-white/55"
             >
-              Free · Installable app · Works offline · v{__APP_VERSION__}
+              {__ITCH__ ? 'Free' : 'Free · Installable app · Works offline'} · v{__APP_VERSION__}
             </motion.p>
             <motion.button
               onClick={() => scrollTo('how')}
@@ -368,7 +369,9 @@ export default function LandingPage({ onPlay }: Props) {
                   The host is counting on you.
                 </motion.h2>
                 <motion.p variants={item} className="max-w-lg text-white/70">
-                  Free to play in your browser. Add it to your home screen to install it as an app and play offline.
+                  {__ITCH__
+                    ? <>Free to play in your browser. Want it as an offline app? Install it from the <a href={WEB_APP} target="_blank" rel="noreferrer" className="underline hover:text-white">web version</a>.</>
+                    : 'Free to play in your browser. Add it to your home screen to install it as an app and play offline.'}
                 </motion.p>
                 <motion.div variants={item}><PlayButton onPlay={onPlay} label="Start your first wave" big /></motion.div>
               </Reveal>

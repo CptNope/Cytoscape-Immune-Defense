@@ -1,0 +1,57 @@
+name: itch.io build
+
+# Builds the itch.io HTML5 zip on every published release (or by hand) and keeps it as an
+# artifact. If the BUTLER_API_KEY secret and ITCH_GAME variable are set, it also pushes the
+# build to itch with butler. See itch/STORE_PAGE.md.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  itch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Build itch.io zip
+        run: npm run build:itch
+
+      - name: Read version
+        id: version
+        run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Upload zip artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cytoscape-immune-defense-itch-v${{ steps.version.outputs.version }}
+          path: release/*.zip
+          if-no-files-found: error
+
+      - name: Push to itch.io with butler
+        env:
+          BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
+          ITCH_GAME: ${{ vars.ITCH_GAME }}
+        if: env.BUTLER_API_KEY != '' && env.ITCH_GAME != ''
+        run: |
+          curl -sSL -o butler.zip https://broth.itch.zone/butler/linux-amd64/LATEST/archive/default
+          unzip -q butler.zip -d butler && chmod +x butler/butler
+          ./butler/butler -V
+          ./butler/butler push dist-itch "$ITCH_GAME:html" --userversion "${{ steps.version.outputs.version }}"

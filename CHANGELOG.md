@@ -5,6 +5,20 @@ All notable changes to Cytoscape: Immune Defense will be documented in this file
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.1] - 2026-11-18 — Ready for itch.io
+
+### Added
+- **itch.io build**: `npm run build:itch` makes an HTML5 zip ready to upload to itch.io (`release/cytoscape-immune-defense-itch-v<version>.zip`)
+  - Relative paths, so it runs from itch's CDN inside the page embed
+  - No service worker or update prompt (itch delivers new versions itself)
+  - Opens straight on the game menu; "About the game" still shows the landing page
+  - The packaging step checks itch's limits (1,000 files, 500 MB) and fails if an absolute path or service worker slips in
+- **itch.io build workflow**: builds the zip on every published release (or by hand) and pushes it to itch with butler once `BUTLER_API_KEY` and `ITCH_GAME` are set
+- **Store page kit** in `itch/`: description, tags, embed settings, a 630×500 cover image and screenshots
+
+### Changed
+- `index.html` uses `%BASE_URL%` instead of hard-coded `/Cytoscape-Immune-Defense/` paths, so both builds get the right icon paths
+
 ## [2.3.0] - 2026-10-21 — First Contact
 
 ### Added
