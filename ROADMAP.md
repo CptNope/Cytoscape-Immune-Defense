@@ -2,7 +2,9 @@
 
 This document outlines planned features and expansion ideas for the game, organized by release version.
 
-> **Version history:** v1.0 initial release → v1.1 PWA & scores → v1.2 engine refactor & tests → v1.3 audio & feedback → v1.4 progression & unlockables → v1.5 new enemies & bosses → v1.6 game modes → v1.7 visual polish → v1.8 responsive design → v1.9 mobile gameplay fixes → v1.10 mobile performance & controls → v1.11 smooth motion & CI → v2.0 Immune Response update
+> **Version history:** v1.0 initial release → v1.1 PWA & scores → v1.2 engine refactor & tests → v1.3 audio & feedback → v1.4 progression & unlockables → v1.5 new enemies & bosses → v1.6 game modes → v1.7 visual polish → v1.8 responsive design → v1.9 mobile gameplay fixes → v1.10 mobile performance & controls → v1.11 smooth motion & CI → v2.0 Immune Response → v2.1 Under the Microscope → v2.2 Selection Pressure → v2.3 First Contact → v2.3.1 itch.io launch → v2.3.2 docs & links
+>
+> Full details for every release are in the [changelog](CHANGELOG.md). Play the current version on [itch.io](https://cptnope.itch.io/cytoscape-immune-defense) or the [web app](https://cptnope.github.io/Cytoscape-Immune-Defense/).
 
 ---
 
@@ -85,7 +87,27 @@ This document outlines planned features and expansion ideas for the game, organi
 - [x] Pathogen codex with real biology
 - [x] First-run tutorial, colorblind palette
 
-## v2.1 — Multiplayer & Social
+## v2.1 — Under the Microscope ✅
+
+- [x] Biology-based SVG art and motion for every cell, microbe and boss
+- [x] Cached sprites so the new art stays fast on phones
+
+## v2.2 — Selection Pressure ✅
+
+- [x] On-screen entity limits with reinforcement waves
+- [x] Adaptive resistance that scales enemies with your power
+- [x] Power-up art
+
+## v2.3 — First Contact ✅
+
+- [x] Animated landing page with a self-playing game scene
+- [x] CI preview builds for pull requests
+- [x] v2.3.1: itch.io build, release workflow and store page ([play on itch.io](https://cptnope.itch.io/cytoscape-immune-defense))
+- [x] v2.3.2: comprehensive README and docs, donation links, removed leftover AI Studio scaffolding
+
+---
+
+## Next — Multiplayer & Social
 
 - [ ] **Online leaderboard** — global high scores via serverless API (Cloudflare Workers or Supabase)
 - [ ] **Daily challenges** — unique seed-based runs with shared leaderboard
@@ -93,7 +115,7 @@ This document outlines planned features and expansion ideas for the game, organi
 - [ ] Share score card — generate shareable image with score, level, and stats
 - [ ] Achievement system with badges
 
-## v2.2 — Accessibility & Platform
+## Next — Accessibility & Platform
 
 - [x] Colorblind mode — Okabe–Ito palette; every entity also has a shape and label (v2.0)
 - [ ] Reduced motion mode — disable particles, screen shake, scanlines
@@ -116,4 +138,4 @@ This document outlines planned features and expansion ideas for the game, organi
 
 ## Contributing
 
-Ideas and PRs welcome! If you'd like to work on any of these, open an issue first to discuss the approach.
+Ideas and PRs welcome! If you'd like to work on any of these, open an [issue](https://github.com/CptNope/Cytoscape-Immune-Defense/issues) first to discuss the approach, and see [CONTRIBUTING.md](CONTRIBUTING.md). You can also [support development on itch.io](https://cptnope.itch.io/cytoscape-immune-defense/purchase).

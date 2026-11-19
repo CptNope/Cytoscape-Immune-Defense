@@ -5,6 +5,22 @@ All notable changes to Cytoscape: Immune Defense will be documented in this file
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.2] - 2026-11-18 — Field Manual
+
+### Added
+- **Documentation**: a rewritten README (screenshots, where to play, features, Mermaid diagrams, docs index) plus [`docs/GAMEPLAY.md`](docs/GAMEPLAY.md), [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) and [`CONTRIBUTING.md`](CONTRIBUTING.md)
+- **Boss screenshots** in `docs/images/`
+- **Donation links**: a "Support the game" link in the landing page footer, a Sponsor button on GitHub (`.github/FUNDING.yml`) and links throughout the docs, all to the itch.io donation page
+- **Landing page footer** links to the itch.io page and the Jeremy Anderson Tech project page
+- **`LICENSE`** file with the full Apache-2.0 text the project already used
+- itch.io page theme assets (`itch/banner-960.png`, `itch/embed-bg-960x640.png`)
+
+### Changed
+- Roadmap: shipped versions 2.1–2.3 listed; planned work renamed "Next" so it no longer clashes with released version numbers
+
+### Removed
+- Leftover Google AI Studio scaffolding: the README banner, `metadata.json`, `.env.example`, and the unused Gemini API key and HMR settings in `vite.config.ts`
+
 ## [2.3.1] - 2026-11-18 — Ready for itch.io
 
 ### Added
