@@ -138,4 +138,4 @@ This document outlines planned features and expansion ideas for the game, organi
 
 ## Contributing
 
-Ideas and PRs welcome! If you'd like to work on any of these, open an [issue](https://github.com/CptNope/Cytoscape-Immune-Defense/issues) first to discuss the approach, and see [CONTRIBUTING.md](CONTRIBUTING.md). You can also [support development on itch.io](https://cptnope.itch.io/cytoscape-immune-defense/purchase).
+Ideas and PRs welcome! If you'd like to work on any of these, open an [issue](https://github.com/CptNope/Cytoscape-Immune-Defense/issues) first to discuss the approach, and see [CONTRIBUTING.md](CONTRIBUTING.md). You can also [support development on itch.io](https://cptnope.itch.io/cytoscape-immune-defense/donate).
