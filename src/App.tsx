@@ -12,7 +12,9 @@ import PWAUpdatePrompt from './components/PWAUpdatePrompt';
 const startsInGame = () => typeof location !== 'undefined' && location.hash === '#play';
 
 export default function App() {
-  const [view, setView] = useState<'landing' | 'game'>(startsInGame() ? 'game' : 'landing');
+  // On itch.io the store page already introduces the game, so the embed opens on the game menu
+  // (the menu's About link still reaches the landing page)
+  const [view, setView] = useState<'landing' | 'game'>(__ITCH__ || startsInGame() ? 'game' : 'landing');
   const runningRef = useRef(false);
   const onRunningChange = useCallback((running: boolean) => { runningRef.current = running; }, []);
 

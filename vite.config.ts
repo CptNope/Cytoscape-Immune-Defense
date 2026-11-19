@@ -6,12 +6,16 @@ import {VitePWA} from 'vite-plugin-pwa';
 
 export default defineConfig(({mode}) => {
   const env = loadEnv(mode, '.', '');
+  // `vite build --mode itch` makes the itch.io upload: relative paths (itch serves the game
+  // from its own CDN folder inside an iframe) and no service worker or install prompt.
+  const itch = mode === 'itch';
   return {
-    base: '/Cytoscape-Immune-Defense/',
+    base: itch ? './' : '/Cytoscape-Immune-Defense/',
+    build: itch ? { outDir: 'dist-itch', emptyOutDir: true } : undefined,
     plugins: [
       react(),
       tailwindcss(),
-      VitePWA({
+      !itch && VitePWA({
         registerType: 'prompt',
         includeAssets: [
           'favicon.ico',
@@ -71,12 +75,15 @@ export default defineConfig(({mode}) => {
       }),
     ],
     define: {
+      '__ITCH__': JSON.stringify(itch),
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
       '__APP_VERSION__': JSON.stringify(process.env.npm_package_version || '1.0.0'),
     },
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
+        // The itch build has no service worker, so the update prompt gets a no-op hook
+        ...(itch ? { 'virtual:pwa-register/react': path.resolve(__dirname, 'src/pwa-register-stub.ts') } : {}),
       },
     },
     server: {
