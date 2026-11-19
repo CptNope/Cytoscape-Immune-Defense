@@ -61,7 +61,9 @@ You can also download the zip from the **itch.io build** workflow run on GitHub 
 
 - **Cover image** (630 × 500): `itch/cover-630x500.png` (a 2× version is `itch/cover-1260x1000.png`; itch accepts either and downsizes)
 - **Screenshots**, in this order: `itch/screenshots/01-title.png` … `05-campaign.png`
-- **Theme** (Edit theme on the page): background `#0a0505`, text `#e5e7eb`, links and buttons `#34d399`
+- **Theme** (Edit theme on the page, as live): BG `#050303`, BG 2 `#0d0808`, text `#d1d5db`, links `#34d399`, headers `#ffffff`, buttons `#10b981`; banner `itch/banner-960.png`, embed background `itch/embed-bg-960x640.png`
+- **External links** (Metadata → External links): Homepage → https://jeremyanderson.tech/project/cytoscape-immune-defense/, Source code → https://github.com/CptNope/Cytoscape-Immune-Defense
+- **Live page**: https://cptnope.itch.io/cytoscape-immune-defense
 
 The screenshots were taken headless without web fonts; a few more taken on your own machine mid-boss-fight would sell the game better than menus.
 
