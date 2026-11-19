@@ -10,7 +10,7 @@ An Asteroids-style arcade shooter set in the bloodstream, with nine bosses based
 
 [![Play on itch.io](https://img.shields.io/badge/play-itch.io-fa5c5c?logo=itchdotio&logoColor=white)](https://cptnope.itch.io/cytoscape-immune-defense)
 [![Play on the web](https://img.shields.io/badge/play-web%20app-10b981?logo=googlechrome&logoColor=white)](https://cptnope.github.io/Cytoscape-Immune-Defense/)
-[![Support the game](https://img.shields.io/badge/support-donate%20on%20itch-ff69b4?logo=githubsponsors&logoColor=white)](https://cptnope.itch.io/cytoscape-immune-defense/purchase)
+[![Support the game](https://img.shields.io/badge/support-donate%20on%20itch-ff69b4?logo=githubsponsors&logoColor=white)](https://cptnope.itch.io/cytoscape-immune-defense/donate)
 <br />
 [![Deploy to GitHub Pages](https://github.com/CptNope/Cytoscape-Immune-Defense/actions/workflows/deploy.yml/badge.svg)](https://github.com/CptNope/Cytoscape-Immune-Defense/actions/workflows/deploy.yml)
 [![CI](https://github.com/CptNope/Cytoscape-Immune-Defense/actions/workflows/ci.yml/badge.svg)](https://github.com/CptNope/Cytoscape-Immune-Defense/actions/workflows/ci.yml)
@@ -19,7 +19,7 @@ An Asteroids-style arcade shooter set in the bloodstream, with nine bosses based
 
 **[▶ Play on itch.io](https://cptnope.itch.io/cytoscape-immune-defense)** ·
 **[▶ Play the installable web app](https://cptnope.github.io/Cytoscape-Immune-Defense/)** ([skip the intro](https://cptnope.github.io/Cytoscape-Immune-Defense/#play)) ·
-**[♥ Support development](https://cptnope.itch.io/cytoscape-immune-defense/purchase)**
+**[♥ Support development](https://cptnope.itch.io/cytoscape-immune-defense/donate)**
 
 [Gameplay guide](docs/GAMEPLAY.md) · [Architecture](docs/ARCHITECTURE.md) · [Deployment](docs/DEPLOYMENT.md) · [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md) · [Roadmap](ROADMAP.md)
 
@@ -72,7 +72,7 @@ The game is made by [Jeremy Anderson Tech](https://jeremyanderson.tech/), a web 
 | **Genre** | Arcade shooter / roguelite |
 | **Platforms** | Any modern browser; installable as an app on Android, iOS, Windows, macOS and Linux |
 | **Input** | Keyboard or touchscreen |
-| **Price** | Free, [donations welcome](https://cptnope.itch.io/cytoscape-immune-defense/purchase) |
+| **Price** | Free, [donations welcome](https://cptnope.itch.io/cytoscape-immune-defense/donate) |
 | **Source** | Open source, [Apache-2.0](LICENSE) |
 | **Current version** | 2.3.2 ([changelog](CHANGELOG.md)) |
 
@@ -281,7 +281,7 @@ Full steps, including the release checklist, are in [docs/DEPLOYMENT.md](docs/DE
 
 Cytoscape is free and always will be. If you enjoy it, you can:
 
-- **[Donate on itch.io](https://cptnope.itch.io/cytoscape-immune-defense/purchase)**: name your own amount; it goes straight to development
+- **[Donate on itch.io](https://cptnope.itch.io/cytoscape-immune-defense/donate)**: name your own amount; it goes straight to development
 - **Rate it or leave a comment** on the [itch.io page](https://cptnope.itch.io/cytoscape-immune-defense)
 - **Star this repo** and share the game with someone who likes biology or arcade games
 - **[Report a bug or suggest an idea](https://github.com/CptNope/Cytoscape-Immune-Defense/issues)**
@@ -303,4 +303,4 @@ Licensed under the [Apache License 2.0](LICENSE).
 
 ---
 
-<p align="center">Built by <a href="https://jeremyanderson.tech/">Jeremy Anderson Tech</a> · Shrewsbury, MA · <a href="https://cptnope.itch.io/cytoscape-immune-defense/purchase">Support the game ♥</a></p>
+<p align="center">Built by <a href="https://jeremyanderson.tech/">Jeremy Anderson Tech</a> · Shrewsbury, MA · <a href="https://cptnope.itch.io/cytoscape-immune-defense/donate">Support the game ♥</a></p>

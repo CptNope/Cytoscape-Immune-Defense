@@ -23,7 +23,7 @@ const SPRING = { type: 'spring', stiffness: 300, damping: 20 } as const;
 const REPO = 'https://github.com/CptNope/Cytoscape-Immune-Defense';
 const WEB_APP = 'https://cptnope.github.io/Cytoscape-Immune-Defense/';
 const ITCH = 'https://cptnope.itch.io/cytoscape-immune-defense';
-const DONATE = `${ITCH}/purchase`;
+const DONATE = `${ITCH}/donate`;
 const SITE = 'https://jeremyanderson.tech/project/cytoscape-immune-defense/';
 const TITLE = 'CYTOSCAPE';
 

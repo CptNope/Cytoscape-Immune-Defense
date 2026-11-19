@@ -9,7 +9,7 @@ Thanks for your interest! Bug reports, ideas, balance feedback and pull requests
 - **Report a bug**: [open an issue](https://github.com/CptNope/Cytoscape-Immune-Defense/issues/new) with your device, browser, where you played (itch.io or the web app), what happened and what you expected. A screenshot or a short clip helps a lot.
 - **Suggest an idea**: open an issue describing it. Biology-based ideas (new pathogens, bosses, cells) are especially welcome.
 - **Pick up roadmap work**: the open items in [ROADMAP.md](ROADMAP.md) are fair game; comment on or open an issue first so work isn't duplicated.
-- **Support the game**: [donate on itch.io](https://cptnope.itch.io/cytoscape-immune-defense/purchase) or leave a rating.
+- **Support the game**: [donate on itch.io](https://cptnope.itch.io/cytoscape-immune-defense/donate) or leave a rating.
 
 ## Setup
 
