@@ -1,246 +1,306 @@
 <div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+
+<img src="docs/images/banner.png" alt="Cytoscape: Immune Defense" width="960" />
 
 # Cytoscape: Immune Defense
 
-A cellular biology themed Asteroids-style arcade game where you pilot a **T-cell** through the bloodstream, defending the host against waves of invading pathogens.
+**You are a T-cell. Hunt viruses, bacteria, parasites and fungi before they overrun the host.**
 
+An Asteroids-style arcade shooter set in the bloodstream, with nine bosses based on real biology, four playable immune cells, a 30-mission campaign and a codex of real immunology. Free, open source, and playable in any browser.
+
+[![Play on itch.io](https://img.shields.io/badge/play-itch.io-fa5c5c?logo=itchdotio&logoColor=white)](https://cptnope.itch.io/cytoscape-immune-defense)
+[![Play on the web](https://img.shields.io/badge/play-web%20app-10b981?logo=googlechrome&logoColor=white)](https://cptnope.github.io/Cytoscape-Immune-Defense/)
+[![Support the game](https://img.shields.io/badge/support-donate%20on%20itch-ff69b4?logo=githubsponsors&logoColor=white)](https://cptnope.itch.io/cytoscape-immune-defense/purchase)
+<br />
 [![Deploy to GitHub Pages](https://github.com/CptNope/Cytoscape-Immune-Defense/actions/workflows/deploy.yml/badge.svg)](https://github.com/CptNope/Cytoscape-Immune-Defense/actions/workflows/deploy.yml)
-![Version](https://img.shields.io/badge/version-2.3.1-emerald)
-![License](https://img.shields.io/badge/license-Apache--2.0-blue)
+[![CI](https://github.com/CptNope/Cytoscape-Immune-Defense/actions/workflows/ci.yml/badge.svg)](https://github.com/CptNope/Cytoscape-Immune-Defense/actions/workflows/ci.yml)
+![Version](https://img.shields.io/badge/version-2.3.2-emerald)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 
-**[Play Now](https://cptnope.github.io/Cytoscape-Immune-Defense/)** — Installable as a PWA on any device · [Skip the intro](https://cptnope.github.io/Cytoscape-Immune-Defense/#play)
+**[▶ Play on itch.io](https://cptnope.itch.io/cytoscape-immune-defense)** ·
+**[▶ Play the installable web app](https://cptnope.github.io/Cytoscape-Immune-Defense/)** ([skip the intro](https://cptnope.github.io/Cytoscape-Immune-Defense/#play)) ·
+**[♥ Support development](https://cptnope.itch.io/cytoscape-immune-defense/purchase)**
 
-[Changelog](CHANGELOG.md) · [Roadmap](ROADMAP.md)
+[Gameplay guide](docs/GAMEPLAY.md) · [Architecture](docs/ARCHITECTURE.md) · [Deployment](docs/DEPLOYMENT.md) · [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md) · [Roadmap](ROADMAP.md)
 
 </div>
 
 ---
 
+## Contents
+
+- [Screenshots](#screenshots)
+- [About](#about)
+- [Where to play](#where-to-play)
+- [Features](#features)
+- [How to play](#how-to-play)
+- [Documentation](#documentation)
+- [Tech stack](#tech-stack)
+- [Architecture at a glance](#architecture-at-a-glance)
+- [Development](#development)
+- [Deployment](#deployment)
+- [Support the game](#support-the-game)
+- [Contributing](#contributing)
+- [Credits](#credits)
+- [License](#license)
+
+## Screenshots
+
+| | |
+|:---:|:---:|
+| ![Landing page](docs/images/landing.png) | ![Gameplay](docs/images/gameplay.png) |
+| **Landing page**: the game plays itself behind the title | **Endless mode**: a T-cell against viruses and bacteria |
+| ![Mega Virus boss](docs/images/boss-mega-virus.png) | ![Influenza boss](docs/images/boss-influenza.png) |
+| **Mega Virus**: the first boss, a shielded capsid | **Influenza**: resists one antibody class at a time |
+| ![Plasmodium boss](docs/images/boss-plasmodium.png) | ![Retrovirus boss](docs/images/boss-retrovirus.png) |
+| **Plasmodium**: hides inside red blood cells | **Retrovirus**: infects you and hijacks T-cells |
+| ![Pathogens](docs/images/pathogens.png) | ![Playable cells](docs/images/cells.png) |
+| **Know the enemy**: every pathogen has a counter | **Four playable immune cells** |
+
+<p align="center"><img src="docs/images/campaign.png" alt="Campaign mission select" width="640" /><br /><b>Campaign</b>: 30 missions across two acts</p>
+
 ## About
 
-Cytoscape: Immune Defense is a fast-paced, browser-based arcade game inspired by classic Asteroids. You control a white blood cell (T-cell) navigating a microscopic battlefield, firing antibodies at viruses, bacteria, parasites, and fungi. Each pathogen type has unique behaviors, resistances, and variants — requiring different strategies to survive.
+Cytoscape: Immune Defense is a fast-paced, browser-based arcade game inspired by classic Asteroids. You pilot a white blood cell through a microscopic battlefield, firing antibodies at viruses, bacteria, parasites and fungi. Each pathogen has its own behaviour, resistances and variants, so every fight asks a different question.
 
-The game is built as a **Progressive Web App (PWA)** and can be installed on Android, iOS, Windows, macOS, and Linux for a native-like offline experience.
+Everything in the game is drawn from real immunology: antibody classes really do favour different targets, macrophages really do engulf pathogens, Plasmodium really does hide inside red blood cells, and the final boss is an autoimmune T-cell, one of your own turned against the body. A codex unlocks the biology behind each enemy as you defeat it.
 
-## Gameplay
+The game is made by [Jeremy Anderson Tech](https://jeremyanderson.tech/), a web development and security practice in Shrewsbury, MA. Read more on the [project page](https://jeremyanderson.tech/project/cytoscape-immune-defense/).
+
+| | |
+|---|---|
+| **Genre** | Arcade shooter / roguelite |
+| **Platforms** | Any modern browser; installable as an app on Android, iOS, Windows, macOS and Linux |
+| **Input** | Keyboard or touchscreen |
+| **Price** | Free, [donations welcome](https://cptnope.itch.io/cytoscape-immune-defense/purchase) |
+| **Source** | Open source, [Apache-2.0](LICENSE) |
+| **Current version** | 2.3.2 ([changelog](CHANGELOG.md)) |
+
+## Where to play
+
+| | Link | Best for |
+|---|---|---|
+| **itch.io** | [cptnope.itch.io/cytoscape-immune-defense](https://cptnope.itch.io/cytoscape-immune-defense) | Playing in the page, ratings and comments, donating |
+| **Web app (GitHub Pages)** | [cptnope.github.io/Cytoscape-Immune-Defense](https://cptnope.github.io/Cytoscape-Immune-Defense/) | Installing as an app and playing offline; always the newest build from `main` |
+| **Project page** | [jeremyanderson.tech/project/cytoscape-immune-defense](https://jeremyanderson.tech/project/cytoscape-immune-defense/) | The story behind the game |
+
+Progress is saved in your browser on each site separately (itch.io and GitHub Pages don't share saves).
+
+### Installing the web app
+
+| Device | How |
+|---|---|
+| **iPhone / iPad (Safari)** | Share → Add to Home Screen |
+| **Android (Chrome)** | Tap the install banner, or Menu → Install app |
+| **Desktop (Chrome / Edge)** | Click the install icon in the address bar |
+
+## Features
+
+- **7 pathogen types**: viruses, bacteria, parasites, fungi, prions, cancer cells and biofilms, with swift, armoured and stalker variants
+- **9 bosses** with telegraphed attacks and phases: Mega Virus, Bacterial Colony, Parasitic Worm, Fungal Bloom, Plasmodium, Retrovirus, Influenza, Metastatic Tumor and the Autoimmune T-Cell
+- **4 playable cells**, each with its own ability: Killer T-Cell, Macrophage, NK Cell and Plasma B-Cell
+- **4 antibody classes** (IgG, IgM, IgA, IgE) to swap mid-run against different targets
+- **Roguelite runs**: pick 1 of 3 mutations after every wave (clonal selection)
+- **Permanent progression**: XP, 5 upgrade tracks to level 10, cytokine loadout, immune memory, cosmetic membranes
+- **4 modes**: Endless, a 30-mission Campaign with star ratings, Time Attack and Zen
+- **Codex** of real biology for every pathogen and boss
+- **Adaptive resistance** keeps the challenge fair as you get stronger
+- **Touch controls, haptics, colourblind palette** (Okabe–Ito, every entity also has a shape and label), audio and music controls
+- **Runs well everywhere**: fixed-timestep simulation, render interpolation, automatic quality and entity budgets for low-end phones
+- **Installable PWA** that works offline
+
+The full reference, with every number, is in the **[gameplay guide](docs/GAMEPLAY.md)**.
+
+## How to play
 
 ### Controls
 
-| Action | Desktop | Mobile |
-|--------|---------|--------|
-| **Move** | `WASD` / `Arrow Keys` | Touch & drag anywhere on the left half |
+| Action | Keyboard | Touch |
+|--------|----------|-------|
+| **Move** | `WASD` / arrow keys | Drag anywhere on the left half |
 | **Fire** | `Space` or `F` | Hold anywhere on the right half |
 | **Cell ability** | `E` or `Shift` | ✦ button |
 | **Switch antibody class** | `Q` or `Tab` | ⇄ button |
-| **Pause** | `Escape` | Pause button |
+| **Pause** | `Esc` | Pause button |
 
-### Pathogens
+### The loop
 
-| Type | Color | Behavior |
-|------|-------|----------|
-| **Virus** | Yellow | Standard movement, may have **Swift** variant (faster, blue) |
-| **Bacteria** | Red | Standard movement, may have **Armored** variant (tougher, double shell) |
-| **Parasite** | Purple | **Tracks the player**, may have **Stalker** variant (aggressive homing, pink) |
-| **Fungus** | Green | Large, slow, damage-resistant with branching spore structures |
+```mermaid
+flowchart LR
+    A[Pick a cell<br/>and cytokines] --> B[Clear the wave]
+    B --> C{Every 5th wave?}
+    C -- yes --> D[Boss fight]
+    C -- no --> E[Clonal selection:<br/>pick 1 of 3 mutations]
+    D --> E
+    E --> B
+    B -- you fall --> F[Earn XP]
+    F --> G[Upgrades, cytokines,<br/>cosmetics, immune memory]
+    G --> A
+```
 
-Later waves add **prions** (near-invisible swarms), **cancer cells** (grow and copy themselves) and **biofilms** (shielded colonies).
+Shoot a pathogen and it splits into smaller copies, Asteroids-style, until the pieces are too small to split. Destroyed pathogens have a 15% chance to drop a power-up: Rapid Fire, Shield, Damage Boost or System Purge.
 
-### Bosses
+### Pathogens at a glance
 
-A boss appears every 5 levels in Endless mode, cycling through all nine and getting tougher each loop. Each has attacks, telegraphs and phases based on the real organism:
+| Pathogen | Behaviour | Best counter |
+|---|---|---|
+| **Virus** | Splits and swarms; *swift* variant moves almost twice as fast | IgA (+30% vs viruses) |
+| **Bacteria** | Tougher; *armoured* variant has a double cell wall | IgM (+25% vs bacteria) |
+| **Parasite** | Hunts you; *stalker* variant is faster and more aggressive | IgE (2.5× vs parasites) or IgM; dodges fast shots |
+| **Fungus** | Large, slow, takes half damage | Raw damage: Affinity Maturation, Antibody Potency |
+| **Prion** | Tiny, fast, nearly invisible swarms | IgA pierces the cluster; Multi-Epitope covers the swarm |
+| **Cancer cell** | Grows and copies itself | Kill it early |
+| **Biofilm** | Shielded colony; break the shell first | IgM (+25% vs biofilm shields) |
 
-| Boss | Mechanic |
-|------|----------|
-| **Mega Virus** | Shielded capsid fires virion rings; splits off swift viruses at half health |
-| **Bacterial Colony** | Core is protected while 3+ segments remain; breaking a link fragments the chain |
-| **Parasitic Worm** | Armoured body deflects shots; burrows, then lunges along a telegraphed line |
-| **Fungal Bloom** | Hyphae armour and heal the core; spore clouds slow and damage you |
-| **Plasmodium** | Hides inside red blood cells — find the infected one (don't shoot healthy cells!) |
-| **Retrovirus** | Infects you (slower fire), hijacks T-cells, goes latent to heal |
-| **Influenza** | Antigenic shift: resists one antibody class at a time — switch classes |
-| **Metastatic Tumor** | Blood vessels armour it; seeds new tumours across the tissue |
-| **Autoimmune T-Cell** | Final boss: mirrors you, fires back, triggers cytokine-storm rings |
+### Game modes
 
-### Progression
+| Mode | Goal |
+|---|---|
+| **Endless** | Survive as long as you can; a boss every 5 waves, cycling through all nine and getting tougher each loop |
+| **Campaign** | 30 story missions in two acts (*Infection* and *Relapse*), each with 3 stars to earn |
+| **Time Attack** | 60 seconds on the clock; every kill adds time |
+| **Zen** | No damage, no score; drift through the bloodstream |
 
-- **Cell types** — Killer T-Cell, Macrophage, NK Cell, Plasma B-Cell, each with an active ability
-- **Antibody classes** — IgG (standard), IgM (spread), IgA (piercing), IgE (anti-parasite); swap mid-run
-- **Clonal selection** — pick 1 of 3 mutations after each wave (spread shots, piercing, NK escort drones…)
-- **Immune memory** — permanent bonus damage against every pathogen type you've killed enough of
-- **Upgrades** to level 10, a 2-slot **cytokine** loadout, cosmetic membranes, and free respec
-- **Codex** — real biology for every pathogen and boss, unlocked as you defeat them
-- **Campaign** — 30 missions across two acts with star ratings and level select
+## Documentation
 
-### Power-Ups
+| Document | What's in it |
+|---|---|
+| [docs/GAMEPLAY.md](docs/GAMEPLAY.md) | Complete reference: pathogens, bosses, cells, antibodies, mutations, cytokines, upgrades, power-ups, modes, saves |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | How the code fits together: engine modules, game loop, rendering, performance, tests |
+| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | GitHub Pages, the itch.io build, butler uploads, PWA updates and the release checklist |
+| [itch/STORE_PAGE.md](itch/STORE_PAGE.md) | The itch.io store page: copy, settings, theme, images |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | How to set up, test and send a pull request |
+| [CHANGELOG.md](CHANGELOG.md) | Every release since 1.0 |
+| [ROADMAP.md](ROADMAP.md) | What's done and what's next |
 
-Destroyed pathogens have a 15% chance to drop a power-up:
-
-| Power-Up | Effect | Duration |
-|----------|--------|----------|
-| **Rapid Fire** | Faster shot rate | 5 seconds |
-| **Shield** | Absorbs damage, bounces pathogens away | 5 seconds |
-| **Damage Boost** | Double antibody damage | 5 seconds |
-| **System Purge** | Destroys all pathogens on screen (bosses take 20% damage) | Instant |
-
-### Mechanics
-
-- **Wave System** — Clear all pathogens to advance to the next level; each wave spawns more enemies with increased speed. Big waves stream in as reinforcements once the screen is full, so the game stays smooth on every device
-- **Adaptive Resistance** — Pathogens evolve to match your strength: upgrades, immune memory, your cell type and the mutations you draft all raise their health (shown as *Resistance ×N*), so the game stays challenging without erasing your progress
-- **Pathogen Splitting** — Destroyed pathogens split into two smaller ones (like Asteroids) until they're too small
-- **Resistance System** — Fungi take half damage; parasites resist fast antibodies (IgG/IgA) but not slow ones (IgM/IgE)
-- **Variant System** — Some pathogens spawn with special traits: armored, swift, or stalker
-- **Screen Wrap** — All entities wrap around screen edges
-
-## Tech Stack
+## Tech stack
 
 | Technology | Purpose |
 |------------|---------|
-| **React 19** | UI framework |
-| **TypeScript** | Type safety |
-| **Vite 6** | Build tool & dev server |
-| **Tailwind CSS 4** | Styling |
-| **Motion (Framer Motion)** | UI animations |
-| **Lucide React** | Icons |
-| **HTML5 Canvas** | Game rendering |
-| **vite-plugin-pwa** | Service worker & manifest generation |
-| **Workbox** | Offline caching strategies |
-| **GitHub Actions** | CI/CD to GitHub Pages |
+| [React 19](https://react.dev/) | UI: menus, overlays, HUD |
+| [TypeScript 5.8](https://www.typescriptlang.org/) | Type safety across the engine and UI |
+| [Vite 6](https://vite.dev/) | Dev server and builds |
+| [Tailwind CSS 4](https://tailwindcss.com/) | Styling |
+| [Motion](https://motion.dev/) | UI and landing page animation |
+| [Lucide](https://lucide.dev/) | Icons |
+| HTML5 Canvas 2D | Game rendering; all art is procedural SVG drawn by the game |
+| Web Audio API | Synthesised sound effects and music |
+| [vite-plugin-pwa](https://vite-pwa-org.netlify.app/) + Workbox | Service worker, manifest, offline caching |
+| [Vitest](https://vitest.dev/) | Unit tests for the engine (200 tests) |
+| GitHub Actions | CI, GitHub Pages deploys, itch.io builds |
 
-## Progressive Web App (PWA)
+## Architecture at a glance
 
-This game is a fully installable PWA with:
+```mermaid
+flowchart TB
+    subgraph UI["React UI (src/components)"]
+        App[App.tsx<br/>landing ↔ game routing] --> Landing[LandingPage<br/>+ AttractScene]
+        App --> Game[Game.tsx<br/>game loop & input]
+        Game --> Menus[ModeSelect · LoadoutPanel · UpgradeScreen<br/>CodexPanel · StatsPanel · DraftOverlay · Tutorial]
+        Game --> Touch[TouchControls]
+    end
+    subgraph Engine["Pure TypeScript engine (src/engine)"]
+        Physics[physics] --- Combat[combat]
+        Bosses[bosses] --- Hazards[hazards]
+        Weapons[weapons] --- Cells[cells]
+        Progression[progression] --- Campaign[campaign]
+        Difficulty[difficulty] --- Budget[budget]
+        Renderer[renderer + art] --- Audio[audio]
+    end
+    Game -->|60 Hz fixed steps| Engine
+    Engine -->|interpolated frames| Canvas[(Canvas 2D)]
+    Progression <-->|saves| Storage[(localStorage)]
+```
 
-- **Offline Support** — Play without an internet connection after first visit
-- **Automatic Updates** — Version-based cache busting with user-facing update prompt
-- **iOS Support** — Full `apple-mobile-web-app` meta tags, apple-touch-icons for all device sizes, standalone mode
-- **Android Support** — Web app manifest with maskable icons, `display: standalone`
-- **Desktop Support** — Installable via Chrome/Edge on Windows, macOS, Linux
-
-### Installing
-
-- **iOS Safari** — Tap Share → "Add to Home Screen"
-- **Android Chrome** — Tap the install banner or Menu → "Install app"
-- **Desktop Chrome/Edge** — Click the install icon in the address bar
+The engine is plain TypeScript with no React in it, so the rules (collisions, damage, boss AI, progression) are unit-tested headlessly. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the details.
 
 ## Development
 
-### Prerequisites
-
-- **Node.js** ≥ 20
-
-### Getting Started
+**Prerequisites:** Node.js 22 (20.15+ works).
 
 ```bash
-# Clone the repository
 git clone https://github.com/CptNope/Cytoscape-Immune-Defense.git
 cd Cytoscape-Immune-Defense
-
-# Install dependencies
 npm install
-
-# Start development server
-npm run dev
+npm run dev        # http://localhost:3000/Cytoscape-Immune-Defense/
 ```
-
-The dev server runs at `http://localhost:3000`.
-
-### Available Scripts
 
 | Command | Description |
 |---------|-------------|
-| `npm run dev` | Start dev server on port 3000 |
-| `npm run build` | Production build to `dist/` |
-| `npm run preview` | Preview production build locally |
-| `npm test` | Run unit tests (vitest) |
-| `npm run test:watch` | Run tests in watch mode |
-| `npm run lint` | TypeScript type checking |
-| `npm run generate-icons` | Regenerate all PWA icons from `public/icon.svg` |
-| `npm run clean` | Remove `dist/` directory |
+| `npm run dev` | Dev server on port 3000 with hot reload |
+| `npm run build` | GitHub Pages build to `dist/` (PWA, landing page) |
+| `npm run build:itch` | itch.io build to `dist-itch/` and a ready-to-upload zip in `release/` |
+| `npm run preview` | Serve the production build locally |
+| `npm test` | Run the unit tests |
+| `npm run test:watch` | Tests in watch mode |
+| `npm run lint` | Type-check with `tsc` |
+| `npm run generate-icons` | Regenerate every PWA icon from `public/icon.svg` |
+| `npm run clean` | Remove `dist/`, `dist-itch/` and `release/` |
 
-### Releasing Updates
+In development, `window.__cytoDebug` exposes entity counts and `jumpToWave(n)` for testing bosses and stress (it's stripped from production builds).
 
-To push an update to all installed clients:
-
-1. Bump `version` in `package.json` (e.g., `1.1.0` → `1.2.0`)
-2. Add an entry to [`CHANGELOG.md`](CHANGELOG.md)
-3. Commit and push to `main`
-4. GitHub Actions will auto-deploy; the service worker detects the new version and users see an update prompt
-
-### Project Structure
+### Project structure
 
 ```
-├── .github/workflows/   # GitHub Actions CI/CD
-├── CHANGELOG.md          # Version history
-├── ROADMAP.md            # Planned features & expansion
-├── public/
-│   ├── icon.svg          # Source SVG icon
-│   ├── icons/            # Generated PNG icons (all sizes)
-│   ├── apple-touch-icon.png
-│   └── favicon.ico
+├── .github/
+│   ├── FUNDING.yml           # "Sponsor" button → itch.io donations
+│   └── workflows/            # ci.yml, deploy.yml (Pages), itch.yml, preview-cleanup.yml
+├── docs/                     # Gameplay, architecture and deployment guides + images
+├── itch/                     # itch.io store page kit: copy, cover, banner, screenshots
+├── public/                   # icon.svg, generated icons, favicon
 ├── scripts/
-│   └── generate-icons.mjs  # Icon generation script (Sharp)
+│   ├── generate-icons.mjs    # PWA icons from icon.svg (sharp)
+│   └── package-itch.mjs      # Zips dist-itch/ for itch.io and checks its limits
 ├── src/
-│   ├── main.tsx          # React entry point
-│   ├── App.tsx           # Root component
-│   ├── index.css         # Global styles (Tailwind)
-│   ├── vite-env.d.ts     # Type declarations
-│   ├── components/
-│   │   ├── Game.tsx       # Game component (React integration layer, game loop)
-│   │   ├── TouchControls.tsx    # Twin-zone touch controls + ability/swap buttons
-│   │   ├── DraftOverlay.tsx     # Clonal selection between waves
-│   │   ├── LoadoutPanel.tsx     # Cell type, cytokines, cosmetics
-│   │   ├── CodexPanel.tsx       # Pathogen encyclopedia & immune memory
-│   │   ├── Tutorial.tsx         # First-run hints
-│   │   └── …                    # Menus, briefing, stats, audio, PWA prompt
-│   └── engine/
-│       ├── types.ts       # All game interfaces (Vector, Entity, Pathogen, etc.)
-│       ├── constants.ts   # Game physics & balance constants
-│       ├── physics.ts     # Pure functions: collision, wrapping, velocity
-│       ├── renderer.ts    # Canvas rendering (extracted draw logic)
-│       ├── bosses.ts      # All 9 bosses: AI, attacks, phases (engine-only, tested headlessly)
-│       ├── combat.ts      # Damage rules: resistances, classes, memory, armour
-│       ├── hazards.ts     # Enemy projectiles, spore clouds, telegraphs, rings
-│       ├── weapons.ts     # Antibody classes (IgG/IgM/IgA/IgE)
-│       ├── cells.ts       # Playable cell types & abilities
-│       ├── mutations.ts   # Clonal selection mutations
-│       ├── memory.ts      # Immune memory
-│       ├── progression.ts # XP, upgrades, loadout, cosmetics, persistence
-│       ├── campaign.ts    # 30 campaign missions, stars, par times
-│       ├── codex.ts       # Biology facts
-│       ├── interpolation.ts # Render interpolation & in-place compaction
-│       ├── scores.ts      # localStorage top scores persistence
-│       ├── index.ts       # Barrel re-exports
-│       └── __tests__/     # Unit tests (vitest)
-├── index.html            # HTML template with PWA meta tags
-├── vite.config.ts        # Vite + PWA plugin configuration
-├── package.json
-└── tsconfig.json
+│   ├── App.tsx               # Landing page ↔ game routing (#play)
+│   ├── components/           # React UI: Game, LandingPage, menus, overlays, touch controls
+│   ├── engine/               # Game rules, AI, rendering, audio, progression (+ __tests__)
+│   └── pwa-register-stub.ts  # No-op service worker hook for the itch build
+├── index.html
+├── vite.config.ts            # Pages and itch build modes, PWA config
+├── CHANGELOG.md · ROADMAP.md · CONTRIBUTING.md · LICENSE
+└── package.json
 ```
 
 ## Deployment
 
-The app auto-deploys to GitHub Pages via GitHub Actions on every push to `main`. The workflow:
-
-1. Checks out code
-2. Installs dependencies (`npm ci`)
-3. Builds production bundle (`npm run build`)
-4. Deploys `dist/` to GitHub Pages
-
-**Live URL:** [https://cptnope.github.io/Cytoscape-Immune-Defense/](https://cptnope.github.io/Cytoscape-Immune-Defense/)
-
-### itch.io
-
-```bash
-npm run build:itch
+```mermaid
+flowchart LR
+    PR[Pull request] -->|ci.yml: typecheck, tests, build,<br/>preview artifact| Review{Merge}
+    Review -->|push to main| Deploy[deploy.yml] --> Pages[GitHub Pages<br/>web app + PWA]
+    Review -->|publish a GitHub release| Itch[itch.yml] --> Zip[itch.io zip artifact]
+    Itch -.->|with BUTLER_API_KEY| ItchIO[itch.io page]
 ```
 
-Builds an itch.io-ready HTML5 zip in `release/` (relative paths, no service worker, opens on the game menu). The **itch.io build** workflow does the same on every published release and can push to itch with butler. Store page copy, embed settings, cover image and screenshots are in [`itch/`](itch/STORE_PAGE.md).
+- **GitHub Pages** deploys automatically on every push to `main`. Installed copies of the app show an "Update available" prompt.
+- **itch.io** gets a separate build with relative paths and no service worker. Publishing a GitHub release builds the zip; with the `BUTLER_API_KEY` secret and `ITCH_GAME` variable set, it's pushed to itch automatically. Otherwise upload the zip from the workflow run.
+
+Full steps, including the release checklist, are in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
+## Support the game
+
+Cytoscape is free and always will be. If you enjoy it, you can:
+
+- **[Donate on itch.io](https://cptnope.itch.io/cytoscape-immune-defense/purchase)**: name your own amount; it goes straight to development
+- **Rate it or leave a comment** on the [itch.io page](https://cptnope.itch.io/cytoscape-immune-defense)
+- **Star this repo** and share the game with someone who likes biology or arcade games
+- **[Report a bug or suggest an idea](https://github.com/CptNope/Cytoscape-Immune-Defense/issues)**
+
+## Contributing
+
+Ideas, bug reports and pull requests are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) for setup and conventions, and check the [roadmap](ROADMAP.md) for planned work. For anything big, open an [issue](https://github.com/CptNope/Cytoscape-Immune-Defense/issues) first so we can talk through the approach.
+
+## Credits
+
+- Design and development: [Jeremy Anderson Tech](https://jeremyanderson.tech/) ([services](https://jeremyanderson.tech/services/))
+- Built with help from Claude (Anthropic); code, art, text and audio include AI-assisted work, as disclosed on itch.io
+- Fonts: [Inter](https://rsms.me/inter/) and [JetBrains Mono](https://www.jetbrains.com/lp/mono/) via Google Fonts
+- Inspired by Atari's *Asteroids* (1979) and a lot of immunology textbooks
 
 ## License
 
-This project is licensed under the [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0).
+Licensed under the [Apache License 2.0](LICENSE).
 
 ---
 
-Built by [Jeremy Anderson Tech](https://jeremyanderson.tech/), a web development and security practice in Shrewsbury, MA. Read more on the [project page](https://jeremyanderson.tech/project/cytoscape-immune-defense/). [Services](https://jeremyanderson.tech/services/)
+<p align="center">Built by <a href="https://jeremyanderson.tech/">Jeremy Anderson Tech</a> · Shrewsbury, MA · <a href="https://cptnope.itch.io/cytoscape-immune-defense/purchase">Support the game ♥</a></p>

@@ -7,7 +7,7 @@ import { Fragment, useRef, type ReactNode, type RefObject } from 'react';
 import {
   motion, MotionConfig, useReducedMotion, useScroll, useTransform, type Variants,
 } from 'motion/react';
-import { Play, Crosshair, Navigation, Dna, ChevronDown, ExternalLink, Smartphone, Keyboard, Shield, Brain, TrendingUp, FlaskConical } from 'lucide-react';
+import { Play, Crosshair, Navigation, Dna, ChevronDown, ExternalLink, Heart, Smartphone, Keyboard, Shield, Brain, TrendingUp, FlaskConical } from 'lucide-react';
 import { CODEX, CELL_TYPES, ANTIBODY_CLASSES, codexArtUrl, cellArtUrl } from '../engine';
 import AttractScene from './AttractScene';
 import OrganismArt from './OrganismArt';
@@ -22,6 +22,9 @@ const SPRING = { type: 'spring', stiffness: 300, damping: 20 } as const;
 
 const REPO = 'https://github.com/CptNope/Cytoscape-Immune-Defense';
 const WEB_APP = 'https://cptnope.github.io/Cytoscape-Immune-Defense/';
+const ITCH = 'https://cptnope.itch.io/cytoscape-immune-defense';
+const DONATE = `${ITCH}/purchase`;
+const SITE = 'https://jeremyanderson.tech/project/cytoscape-immune-defense/';
 const TITLE = 'CYTOSCAPE';
 
 const container: Variants = {
@@ -385,6 +388,9 @@ export default function LandingPage({ onPlay }: Props) {
                 <a href={REPO} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 hover:text-white">GitHub<ExternalLink className="w-3.5 h-3.5" /></a>
                 <a href={`${REPO}/blob/main/CHANGELOG.md`} target="_blank" rel="noreferrer" className="hover:text-white">Changelog</a>
                 <a href={`${REPO}/blob/main/ROADMAP.md`} target="_blank" rel="noreferrer" className="hover:text-white">Roadmap</a>
+                <a href={ITCH} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 hover:text-white">itch.io<ExternalLink className="w-3.5 h-3.5" /></a>
+                <a href={SITE} target="_blank" rel="noreferrer" className="hover:text-white">Jeremy Anderson Tech</a>
+                <a href={DONATE} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-emerald-400 hover:text-emerald-300">Support the game<Heart className="w-3.5 h-3.5" /></a>
               </span>
             </div>
           </footer>

@@ -1,11 +1,10 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
-import {defineConfig, loadEnv} from 'vite';
+import {defineConfig} from 'vite';
 import {VitePWA} from 'vite-plugin-pwa';
 
 export default defineConfig(({mode}) => {
-  const env = loadEnv(mode, '.', '');
   // `vite build --mode itch` makes the itch.io upload: relative paths (itch serves the game
   // from its own CDN folder inside an iframe) and no service worker or install prompt.
   const itch = mode === 'itch';
@@ -76,7 +75,6 @@ export default defineConfig(({mode}) => {
     ],
     define: {
       '__ITCH__': JSON.stringify(itch),
-      'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
       '__APP_VERSION__': JSON.stringify(process.env.npm_package_version || '1.0.0'),
     },
     resolve: {
@@ -85,11 +83,6 @@ export default defineConfig(({mode}) => {
         // The itch build has no service worker, so the update prompt gets a no-op hook
         ...(itch ? { 'virtual:pwa-register/react': path.resolve(__dirname, 'src/pwa-register-stub.ts') } : {}),
       },
-    },
-    server: {
-      // HMR is disabled in AI Studio via DISABLE_HMR env var.
-      // Do not modify—file watching is disabled to prevent flickering during agent edits.
-      hmr: process.env.DISABLE_HMR !== 'true',
     },
   };
 });
